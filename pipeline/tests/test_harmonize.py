@@ -178,6 +178,8 @@ def test_volcanic_zero(tmp_path):
 
 def test_exclude_year(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "MIN_DETECTIONS", 1)
+    # the hand-built frame uses 2012 and 2013, so widen the fit window for this test
+    monkeypatch.setattr(settings, "FIT_YEARS", {**settings.FIT_YEARS, "aqua_snpp": range(2012, 2022)})
     con, glob = duckdb.connect(), write_points(tmp_path, two_years())
     pick = lambda t: [x["r"] for x in t.to_pylist() if (x["link"], x["metric"], x["variant"], x["stratum"],
                                                          x["month"]) == ("aqua_snpp", "n", "noregion", 0, 1)]

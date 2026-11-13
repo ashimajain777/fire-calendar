@@ -111,11 +111,13 @@ def step_harmonize(region: str):
     pq.write_table(ratios, DATA / "ratios.parquet")
     harmonize.apply_weights(c, g("classified"), ratios.drop_columns(["chosen"]), variant, dates, WORK / "points")
     state(chain={k: str(v) for k, v in dates.items()}, variant=variant, variant_reason=reason)
-    print(c.execute(
-        f"""SELECT link, stratum, round(avg(r), 3) r_mean, round(min(r), 3) r_min, round(max(r), 3) r_max,
-                   count(*) FILTER (fallback <> 'none') n_fallback, count(*) n
-            FROM '{(DATA / 'ratios.parquet').as_posix()}' WHERE chosen AND metric = 'n'
-            GROUP BY ALL ORDER BY ALL""").fetchdf().to_string())
+    for row in c.execute(
+            f"""SELECT link, stratum, round(sum(r * n_detections) / sum(n_detections), 3) r_weighted,
+                       round(min(r), 3) r_min, round(max(r), 3) r_max,
+                       count(*) FILTER (fallback <> 'none') n_fallback, count(*) n
+                FROM '{(DATA / 'ratios.parquet').as_posix()}' WHERE chosen AND metric = 'n'
+                GROUP BY ALL ORDER BY ALL""").fetchall():
+        print("  ratio", row)
 
 
 def step_aggregate(region: str):

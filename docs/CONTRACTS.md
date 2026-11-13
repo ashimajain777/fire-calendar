@@ -20,7 +20,7 @@ HARMONIZED = {0,1,2,3,4,5}     # strata; 6 and 7 get weight 0
 BASE_YEARS = range(2003, 2026) # climatology, percentiles, z-scores
 CONF_MODIS_MIN = 30            # MODIS conf_class: <30 l, 30..79 n, >=80 h
 MIN_DETECTIONS = 200           # fallback threshold (source + target detections)
-FIT_YEARS = {"terra_aqua": range(2003, 2012), "aqua_snpp": range(2012, 2022), "snpp_noaa20": range(2018, 2026)}
+FIT_YEARS = {"terra_aqua": range(2003, 2012), "aqua_snpp": range(2013, 2022), "snpp_noaa20": range(2019, 2026)}
 SATELLITES = ["Terra","Aqua","SNPP","NOAA20","NOAA21"]
 MASK_MIN_DAYS = 30; MASK_MIN_YEARS = 3; MASK_WINDOW_YEARS = 5; MASK_MIN_MONTHS = 6; MASK_MIN_TYPED = 3
 ```

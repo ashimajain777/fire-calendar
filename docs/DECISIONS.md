@@ -51,3 +51,8 @@ Each entry: what was decided, and why. Newest at the bottom.
 ## D10. Agent worktrees are plain git worktrees under `.worktrees/`
 
 - The harness's own worktree isolation refused to start ("not in a git repository") because the repo was created after the session began. Manual `git worktree add` is used instead; each agent is told its path.
+
+## D11. Fit years exclude each target satellite's partial first year
+
+- Real data: S-NPP starts 20 Jan 2012 and NOAA-20 starts 1 Apr 2018. Including those years would put source detections with no possible target detections into the ratio of totals and bias the January-March ratios low.
+- Fit years are now Aqua->S-NPP 2013-2021 and S-NPP->NOAA-20 2019-2025 (Terra->Aqua stays 2003-2011). This was decided from the satellites' start dates before any ratio was looked at.
