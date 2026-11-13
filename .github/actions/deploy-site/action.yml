@@ -1,0 +1,37 @@
+name: Deploy site
+description: >
+  The one deploy path. Builds the Pages artifact from the repo (web/, data/, config.json) plus the
+  files kept as assets on the "data" release (points_*.parquet, the current-year dekad file, meta.json),
+  so a code push never drops current-year data.
+inputs:
+  token:
+    description: GitHub token with contents read
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Assemble site
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        mkdir -p _site/data/points _site/data/dekad
+        cp -r web/. _site/
+        rm -rf _site/tests
+        cp -r data/. _site/data/
+        cp config.json _site/config.json
+        if gh release view data >/dev/null 2>&1; then
+          gh release download data --pattern 'points_*.parquet' --dir _site/data/points --clobber || echo "no points assets"
+          gh release download data --pattern 'dekad_*.parquet' --dir _site/data/dekad --clobber || echo "no current-year dekad asset"
+          gh release download data --pattern 'meta.json' --dir _site/data --clobber || echo "no meta asset"
+          gh release download data --pattern 'gate_test.parquet' --dir _site/data/points --clobber || true
+        else
+          echo "::warning::release 'data' not found; deploying repo files only"
+        fi
+        echo "Site contents:"; du -sh _site; ls _site/data/dekad | tail -3; ls _site/data/points | tail -3
+    - uses: actions/upload-pages-artifact@v3
+      with:
+        path: _site
+    - id: deploy
+      uses: actions/deploy-pages@v4
