@@ -15,3 +15,10 @@ Times are local (IST). Numbers are copied from command output.
 - DuckDB-WASM 1.32.0 in the browser, query on the Pages-served file (real MODIS 2004 India data): `n = 9883` rows with latitude 30-31, 3528 ms cold. DuckDB in Python on the same file: 9883. They match.
 - Direct read from the GitHub Release URL: **blocked by CORS** ("No 'Access-Control-Allow-Origin' header"). So points are served through Pages (DECISIONS D3).
 - `docs/CONTRACTS.md` committed.
+
+## Phase 1 in progress (resumed after a usage-limit pause)
+
+- CSV download finished: 48 files (MODIS 2000-2025, S-NPP 2012-2025, NOAA-20 2018-2025). `viirs-jpss1 2017` returned 404 (no such file).
+- Land cover fetched: ESA CCI 2020, recoded to IGBP classes (DECISIONS D9).
+- Agent P2 (classify) finished and is merged into `main`. Agents P1 (ingest), P3 (harmonize + aggregate), V1 (validate) and W1 (web core) were cut off by the usage limit and have been resumed in their worktrees under `.worktrees/`.
+- **Resume point if this stops again:** check each worktree with `git -C .worktrees/<branch> status`, resume or finish the unfinished agents, merge the branches one at a time into `main` running both test suites after each, then write `pipeline/build.py` and start Phase 2.
