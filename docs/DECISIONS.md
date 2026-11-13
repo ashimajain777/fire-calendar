@@ -40,3 +40,14 @@ Each entry: what was decided, and why. Newest at the bottom.
 ## D8. Chain switch dates use each satellite's first full month
 
 - The plan switched from Aqua to S-NPP on S-NPP's first day (20 Jan 2012). The build prompt defines the Terra→Aqua switch as "Aqua's first full month". For one consistent rule, every switch happens on the first day of the new satellite's first full month of data, computed from the data.
+
+## D9. Land cover is ESA CCI / C3S 2020 (300 m), not MCD12Q1
+
+- Update to D5: Planetary Computer has no MCD12Q1 collection. It does have the ESA CCI / C3S global land cover (300 m, year 2020), open without login.
+- `scripts/fetch_landcover.py` reads the India window and recodes each LCCS class to the nearest IGBP class number (table in the script), so the classifier's IGBP rules apply unchanged. No LCCS class in the India window was left unmapped (script output: `unmapped classes: []`).
+- `meta.json` records `landcover_source = "ESA CCI / C3S Land Cover 2020 v2.1.1 (300 m), recoded to IGBP classes"`.
+- To switch to MCD12Q1 later: put the GeoTIFF in `work/aux/` and rerun the `landcover` step.
+
+## D10. Agent worktrees are plain git worktrees under `.worktrees/`
+
+- The harness's own worktree isolation refused to start ("not in a git repository") because the repo was created after the session began. Manual `git worktree add` is used instead; each agent is told its path.
