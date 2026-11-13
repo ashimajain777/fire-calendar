@@ -1,0 +1,451 @@
+/*
+  Burning Activity Calendar: tokens and layout (docs/PLAN.md section 8).
+
+  Classes for the page markup:
+    .app                 page grid: header on top, .rail left, .main right; one column under 768 px
+    .app-header          top bar (title, area summary, freshness badge, links); wraps
+    .rail                left panel with the area form, dates, categories
+    .main                right column; stack children in reading order
+    .kpi-row / .kpi      row of key figures; inside .kpi use .kpi-label and .kpi-value
+    .card                panel-coloured block with padding
+    .tabs / .tab         role=tablist / role=tab buttons; the selected tab has aria-selected="true"
+    .tabpanel            role=tabpanel
+    .calendar            set by renderCalendar() on its container; scrolls sideways on its own
+    .cal-cell            calendar cell (states: --value --zero --nodata --empty --current;
+                         colour steps .cal-seq-1..7 for counts, .cal-div-1..7 for anomaly)
+    .legend              swatch legend (.legend-title, .legend-item, .legend-swatch)
+    .badge               status pill; add .badge--good | .badge--warning | .badge--critical
+                         (each draws its own shape before the text, so colour is never the only cue)
+    .notice              inline message; add .notice--error for failures
+    .btn / .btn--primary buttons (44 px high)
+    .field               label above an input/select (put both inside)
+    .toggle-group        segmented control; the active button has aria-pressed="true"
+    .data-table          plain table; add .num to numeric cells (right-aligned, tabular figures)
+    .visually-hidden     screen-reader-only text
+
+  Theme: follows the system; force with <html data-theme="light"> or <html data-theme="dark">.
+  Calendar colours are custom properties (--seq-1..7, --div-1..7, each with an -ink text colour).
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&display=swap');
+
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --panel: #eef1f4;
+  --ink: #1d2433;
+  --ink-2: #4a5263;
+  --action: #184f95;
+  --on-action: #ffffff;
+  --line: #c3c9d3;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+  --hatch: #b4bac4;
+
+  /* text colours on data cells; fixed, because they pair with fixed fills */
+  --on-light: #10151f;
+  --on-dark: #ffffff;
+
+  /* counts: one-hue ramp, low to high */
+  --seq-1: #cde2fb; --seq-1-ink: var(--on-light);
+  --seq-2: #9ec5f4; --seq-2-ink: var(--on-light);
+  --seq-3: #6da7ec; --seq-3-ink: var(--on-light);
+  --seq-4: #3987e5; --seq-4-ink: var(--on-light);
+  --seq-5: #256abf; --seq-5-ink: var(--on-dark);
+  --seq-6: #184f95; --seq-6-ink: var(--on-dark);
+  --seq-7: #0d366b; --seq-7-ink: var(--on-dark);
+
+  /* anomaly: far below typical (1) to far above typical (7) */
+  --div-1: #256abf; --div-1-ink: var(--on-dark);
+  --div-2: #6da7ec; --div-2-ink: var(--on-light);
+  --div-3: #b7d3f6; --div-3-ink: var(--on-light);
+  --div-4: #f0efec; --div-4-ink: var(--on-light);
+  --div-5: #f2b0a6; --div-5-ink: var(--on-light);
+  --div-6: #e06a5c; --div-6-ink: var(--on-light);
+  --div-7: #b3261e; --div-7-ink: var(--on-dark);
+
+  --gutter: 16px;
+  --radius: 6px;
+  --control-h: 44px;
+}
+
+/* Dark values. The same block appears twice: system preference, and the explicit override. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --panel: #24272b;
+    --ink: #eceef2;
+    --ink-2: #b9bfca;
+    --action: #86b6ef;
+    --on-action: #10151f;
+    --line: #4a4f57;
+    --hatch: #5a5f68;
+    /* on a dark surface the ramp runs dark to light, so "more" still stands out from the page */
+    --seq-1: #0d366b; --seq-1-ink: var(--on-dark);
+    --seq-2: #184f95; --seq-2-ink: var(--on-dark);
+    --seq-3: #256abf; --seq-3-ink: var(--on-dark);
+    --seq-4: #3987e5; --seq-4-ink: var(--on-light);
+    --seq-5: #6da7ec; --seq-5-ink: var(--on-light);
+    --seq-6: #9ec5f4; --seq-6-ink: var(--on-light);
+    --seq-7: #cde2fb; --seq-7-ink: var(--on-light);
+    --div-1: #b7d3f6; --div-1-ink: var(--on-light);
+    --div-2: #6da7ec; --div-2-ink: var(--on-light);
+    --div-3: #256abf; --div-3-ink: var(--on-dark);
+    --div-4: #383835; --div-4-ink: var(--on-dark);
+    --div-5: #b3261e; --div-5-ink: var(--on-dark);
+    --div-6: #e06a5c; --div-6-ink: var(--on-light);
+    --div-7: #f2b0a6; --div-7-ink: var(--on-light);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1a1a19;
+  --panel: #24272b;
+  --ink: #eceef2;
+  --ink-2: #b9bfca;
+  --action: #86b6ef;
+  --on-action: #10151f;
+  --line: #4a4f57;
+  --hatch: #5a5f68;
+  --seq-1: #0d366b; --seq-1-ink: var(--on-dark);
+  --seq-2: #184f95; --seq-2-ink: var(--on-dark);
+  --seq-3: #256abf; --seq-3-ink: var(--on-dark);
+  --seq-4: #3987e5; --seq-4-ink: var(--on-light);
+  --seq-5: #6da7ec; --seq-5-ink: var(--on-light);
+  --seq-6: #9ec5f4; --seq-6-ink: var(--on-light);
+  --seq-7: #cde2fb; --seq-7-ink: var(--on-light);
+  --div-1: #b7d3f6; --div-1-ink: var(--on-light);
+  --div-2: #6da7ec; --div-2-ink: var(--on-light);
+  --div-3: #256abf; --div-3-ink: var(--on-dark);
+  --div-4: #383835; --div-4-ink: var(--on-dark);
+  --div-5: #b3261e; --div-5-ink: var(--on-dark);
+  --div-6: #e06a5c; --div-6-ink: var(--on-light);
+  --div-7: #f2b0a6; --div-7-ink: var(--on-light);
+}
+
+/* ---------- base ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--surface-1);
+  color: var(--ink);
+  font: 400 16px/1.45 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  overflow-x: hidden;
+}
+
+h1, h2, h3 { margin: 0; line-height: 1.2; font-weight: 700; }
+h1 { font-size: 20px; }
+h2 { font-size: 20px; }
+h3 { font-size: 16px; }
+p { margin: 0; }
+small, .muted { font-size: 14px; color: var(--ink-2); }
+a { color: var(--action); }
+table { font-variant-numeric: tabular-nums; }
+
+:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- layout ---------- */
+
+.app {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas: 'header header' 'rail main';
+  min-height: 100vh;
+}
+
+.app-header {
+  grid-area: header;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  padding: 12px var(--gutter);
+  border-bottom: 1px solid var(--line);
+}
+
+.rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: var(--gutter);
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+.main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gutter);
+  min-width: 0; /* lets the calendar scroll inside instead of widening the page */
+  padding: var(--gutter);
+}
+
+.card {
+  min-width: 0;
+  padding: var(--gutter);
+  background: var(--panel);
+  border-radius: var(--radius);
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 24px;
+}
+.kpi { padding-top: 8px; border-top: 2px solid var(--line); }
+.kpi-label { font-size: 14px; color: var(--ink-2); }
+.kpi-value { font-size: 28px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+
+/* ---------- controls ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--control-h);
+  min-width: var(--control-h);
+  padding: 0 16px;
+  border: 1px solid var(--action);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--action);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms;
+}
+.btn:hover { background: color-mix(in srgb, var(--action) 12%, transparent); }
+.btn--primary { background: var(--action); color: var(--on-action); }
+.btn--primary:hover { background: color-mix(in srgb, var(--action) 85%, var(--ink)); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--ink-2); }
+.field input, .field select {
+  min-height: var(--control-h);
+  width: 100%;
+  padding: 0 10px;
+  border: 1px solid var(--ink-2);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+.field input[aria-invalid="true"] { border-color: var(--status-critical); border-width: 2px; }
+/* native checkboxes in the rail: the label row is the 44 px target */
+.rail label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 10px; min-height: var(--control-h); cursor: pointer; }
+input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--action); }
+
+.toggle-group { display: inline-flex; border: 1px solid var(--action); border-radius: var(--radius); overflow: hidden; }
+.toggle-group > button {
+  min-height: var(--control-h);
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--action);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.toggle-group > button + button { border-left: 1px solid var(--action); }
+.toggle-group > button[aria-pressed="true"] { background: var(--action); color: var(--on-action); }
+.toggle-group > button:focus-visible { outline-offset: -4px; outline-color: currentColor; }
+
+.tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); }
+.tab {
+  flex: none;
+  min-height: var(--control-h);
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--action); }
+.tab:focus-visible { outline-offset: -2px; }
+.tabpanel { padding-top: var(--gutter); min-width: 0; }
+
+/* ---------- status ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 14px;
+  color: var(--ink);
+}
+.badge::before { content: ''; flex: none; width: 12px; height: 12px; background: var(--ink-2); }
+.badge--good::before { background: var(--status-good); border-radius: 50%; }                                  /* circle */
+.badge--warning::before { background: var(--status-warning); clip-path: polygon(50% 0, 100% 100%, 0 100%); } /* triangle */
+.badge--critical::before { background: var(--status-critical); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); } /* diamond */
+
+.notice {
+  padding: 10px 12px;
+  border-left: 4px solid var(--action);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: color-mix(in srgb, var(--action) 8%, var(--surface-1));
+  color: var(--ink);
+  font-size: 14px;
+}
+.notice--error {
+  border-left-color: var(--status-critical);
+  background: color-mix(in srgb, var(--status-critical) 10%, var(--surface-1));
+}
+
+/* ---------- tables ---------- */
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data-table th, .data-table td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.data-table th { color: var(--ink-2); font-weight: 600; }
+.data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- calendar ---------- */
+
+.calendar {
+  min-width: 0;
+  padding: 12px;
+  background: var(--surface-1);
+  border-radius: var(--radius);
+}
+.cal-scroll { overflow-x: auto; padding: 4px 4px 4px 0; } /* padding keeps focus rings from being clipped */
+
+.cal-table {
+  width: 100%;
+  min-width: 640px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 14px;
+}
+.cal-table th { color: var(--ink-2); font-weight: 600; text-align: center; }
+.cal-table th abbr { text-decoration: none; }
+.cal-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 64px;
+  padding-right: 8px;
+  background: var(--surface-1);
+  box-shadow: -2px 0 0 var(--surface-1); /* covers the cell gap while scrolled */
+  text-align: right;
+}
+.cal-table tfoot::before { content: ''; display: table-row; height: 8px; } /* gap above the Typical row */
+.cal-table tfoot th { color: var(--ink); }
+
+.cal-cell {
+  position: relative;
+  min-width: 44px;
+  height: 36px;
+  padding: 0 2px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  overflow: hidden;
+  text-align: center;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cal-cell--zero { border-color: var(--line); background: var(--surface-1); color: var(--ink-2); }
+.cal-cell--value { border-color: var(--line); background: var(--surface-1); color: var(--ink); } /* overridden by a colour step */
+.cal-cell--nodata {
+  border-color: var(--line);
+  background: repeating-linear-gradient(45deg, var(--hatch) 0 2px, transparent 2px 7px) var(--surface-1);
+  color: var(--ink);
+  font-weight: 700;
+}
+.cal-cell--empty { cursor: default; }
+.cal-cell--current { box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px var(--surface-1); }
+.cal-cell:focus-visible { z-index: 2; outline: 2px solid var(--action); outline-offset: 1px; overflow: visible; }
+
+.cal-seq-1 { background: var(--seq-1); color: var(--seq-1-ink); }
+.cal-seq-2 { background: var(--seq-2); color: var(--seq-2-ink); }
+.cal-seq-3 { background: var(--seq-3); color: var(--seq-3-ink); }
+.cal-seq-4 { background: var(--seq-4); color: var(--seq-4-ink); }
+.cal-seq-5 { background: var(--seq-5); color: var(--seq-5-ink); }
+.cal-seq-6 { background: var(--seq-6); color: var(--seq-6-ink); }
+.cal-seq-7 { background: var(--seq-7); color: var(--seq-7-ink); }
+.cal-div-1 { background: var(--div-1); color: var(--div-1-ink); }
+.cal-div-2 { background: var(--div-2); color: var(--div-2-ink); }
+.cal-div-3 { background: var(--div-3); color: var(--div-3-ink); }
+.cal-div-4 { background: var(--div-4); color: var(--div-4-ink); }
+.cal-div-5 { background: var(--div-5); color: var(--div-5-ink); }
+.cal-div-6 { background: var(--div-6); color: var(--div-6-ink); }
+.cal-div-7 { background: var(--div-7); color: var(--div-7-ink); }
+
+.cal-tooltip {
+  position: fixed; /* not clipped by the scrolling container */
+  z-index: 20;
+  max-width: 280px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--surface-1);
+  font-size: 14px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.cal-tooltip[hidden] { display: none; }
+.cal-tooltip strong { display: block; }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.legend-title { color: var(--ink); font-weight: 600; }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend-swatch { flex: none; width: 18px; height: 18px; border: 1px solid var(--line); border-radius: 3px; }
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 767.98px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: 'header' 'rail' 'main'; }
+  .rail { border-right: 0; border-bottom: 1px solid var(--line); }
+  .kpi-value { font-size: 20px; }
+}
+
+@media (forced-colors: active) {
+  .cal-cell, .legend-swatch, .badge::before { forced-color-adjust: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}

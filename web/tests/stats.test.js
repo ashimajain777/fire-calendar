@@ -1,0 +1,186 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  median, percentileRank, zScore, anomalyPct, anomalyBin,
+  monthToDate, rankings, season, dekadToDateLabel,
+} from '../stats.js';
+
+const BASE = Array.from({ length: 23 }, (_, i) => 2003 + i); // 2003..2025
+
+// all 36 dekads for every year; fn(year, dekadIndex) -> value
+const dekads = (y0, y1, fn) => {
+  const rows = [];
+  for (let y = y0; y <= y1; y++) {
+    for (let i = 0; i < 36; i++) rows.push({ year: y, month: Math.floor(i / 3) + 1, dekad: (i % 3) + 1, value: fn(y, i) });
+  }
+  return rows;
+};
+
+test('median', () => {
+  assert.equal(median([3, 1, 2]), 2);
+  assert.equal(median([1, 2, 3, 4]), 2.5);
+  assert.equal(median([0, 0, 0]), 0);
+  assert.equal(median([]), null);
+});
+
+test('percentileRank', () => {
+  assert.equal(percentileRank(5, [1, 5, 9]), 50);
+  assert.equal(percentileRank(10, [1, 5, 9]), 100);
+  assert.equal(percentileRank(0, [1, 5, 9]), 0);
+  assert.equal(percentileRank(0, [0, 0, 0]), 50); // all-zero base is "typical", not "0th percentile"
+  assert.equal(percentileRank(1, []), null);
+});
+
+test('Review Focus 4: zero base gives null, never NaN or Infinity', () => {
+  assert.equal(zScore(3, [0, 0, 0, 0, 0]), null);
+  assert.equal(anomalyPct(3, [0, 0, 0]), null);
+  assert.equal(anomalyPct(3, []), null);
+  assert.equal(zScore(3, [1, 2, 3, 4]), null); // n < 5
+});
+
+test('zScore uses the sample sd; anomalyPct uses the median', () => {
+  assert.ok(Math.abs(zScore(4, [1, 2, 3, 4, 5]) - 0.632) < 0.001);
+  assert.equal(anomalyPct(15, [5, 10, 20]), 50);
+});
+
+test('anomalyBin', () => {
+  assert.equal(anomalyBin(9.9), 0);
+  assert.equal(anomalyBin(10), 0);
+  assert.equal(anomalyBin(20), 1);
+  assert.equal(anomalyBin(30), 2);
+  assert.equal(anomalyBin(50), 3);
+  assert.equal(anomalyBin(70), 4);
+  assert.equal(anomalyBin(80), 5);
+  assert.equal(anomalyBin(90), 6);
+  assert.equal(anomalyBin(100), 6);
+});
+
+// value encodes year, month and dekad so sums are checkable
+const mtdRows = dekads(2003, 2026, (y, i) => (y - 2000) * 1000 + (Math.floor(i / 3) + 1) * 10 + (i % 3) + 1);
+const val = (y, m, d) => (y - 2000) * 1000 + m * 10 + d;
+
+test('Review Focus 3: no complete dekad yet -> last complete month', () => {
+  const r = monthToDate(mtdRows, new Date('2026-11-05'), BASE);
+  assert.equal(r.mode, 'last_month');
+  assert.equal(r.year, 2026);
+  assert.equal(r.month, 10);
+  assert.deepEqual(r.dekads, [1, 2, 3]);
+  assert.equal(r.current, val(2026, 10, 1) + val(2026, 10, 2) + val(2026, 10, 3));
+  assert.equal(r.base.length, 23);
+  assert.equal(r.base[0], val(2003, 10, 1) + val(2003, 10, 2) + val(2003, 10, 3));
+});
+
+test('Review Focus 3: month-to-date uses only complete dekads', () => {
+  const r = monthToDate(mtdRows, new Date('2026-11-14'), BASE);
+  assert.equal(r.mode, 'mtd');
+  assert.equal(r.year, 2026);
+  assert.equal(r.month, 11);
+  assert.deepEqual(r.dekads, [1]);
+  assert.equal(r.current, val(2026, 11, 1));
+  assert.deepEqual(r.base, BASE.map((y) => val(y, 11, 1)));
+
+  assert.deepEqual(monthToDate(mtdRows, new Date('2026-11-20'), BASE).dekads, [1, 2]);
+  assert.deepEqual(monthToDate(mtdRows, new Date('2026-11-29'), BASE).dekads, [1, 2]);
+  assert.deepEqual(monthToDate(mtdRows, new Date('2026-11-30'), BASE).dekads, [1, 2, 3]);
+  assert.deepEqual(monthToDate(mtdRows, new Date('2026-02-28'), BASE).dekads, [1, 2, 3]);
+});
+
+test('monthToDate on Jan 5th -> December of the previous year, which leaves the base', () => {
+  const r = monthToDate(mtdRows, new Date('2026-01-05'), BASE);
+  assert.equal(r.mode, 'last_month');
+  assert.equal(r.year, 2025);
+  assert.equal(r.month, 12);
+  assert.equal(r.current, val(2025, 12, 1) + val(2025, 12, 2) + val(2025, 12, 3));
+  assert.equal(r.base.length, 22);
+});
+
+test('monthToDate: a base year with no rows counts as 0', () => {
+  const rows = mtdRows.filter((r) => r.year !== 2010);
+  const r = monthToDate(rows, new Date('2026-11-14'), BASE);
+  assert.equal(r.base[BASE.indexOf(2010)], 0);
+  assert.equal(monthToDate([], new Date('2026-11-14'), BASE).current, 0);
+});
+
+test('rankings', () => {
+  const rows = [
+    { year: 2020, month: 1, value: 5 }, { year: 2020, month: 2, value: 50 },
+    { year: 2021, month: 1, value: 30 }, { year: 2021, month: 2, value: 10 },
+    { year: 2022, month: 1, value: 0 },
+  ];
+  const r = rankings(rows, 2);
+  assert.deepEqual(r.months, [{ year: 2020, month: 2, value: 50 }, { year: 2021, month: 1, value: 30 }]);
+  assert.deepEqual(r.years, [{ year: 2020, value: 55 }, { year: 2021, value: 40 }]);
+  assert.equal(rankings(rows).months.length, 4); // zeros are not "busiest"
+  assert.deepEqual(rankings([]), { months: [], years: [] });
+});
+
+test('season: single season', () => {
+  const s = season(dekads(2003, 2025, (y, i) => (i >= 9 && i <= 14 ? 20 : 0)), BASE);
+  assert.equal(s.status, 'ok');
+  assert.equal(s.onset, 9);
+  assert.equal(s.end, 14);
+  assert.equal(s.peak, 9);
+  assert.equal(s.twoSeasons, false);
+  assert.deepEqual(s.peaks, [9]);
+  const y = s.years.find((r) => r.year === 2010);
+  assert.deepEqual([y.onset, y.end, y.length], [9, 14, 6]);
+  assert.deepEqual(y.flags, []);
+});
+
+test('season: crossing the year boundary', () => {
+  const s = season(dekads(2003, 2025, (y, i) => (i >= 33 || i <= 2 ? 20 : 0)), BASE);
+  assert.equal(s.status, 'ok');
+  assert.ok(s.start >= 4 && s.start <= 33);
+  assert.equal(s.onset, 33);
+  assert.equal(s.end, 2);
+  const y = s.years.find((r) => r.year === 2010);
+  assert.deepEqual([y.onset, y.end, y.length], [33, 2, 6]);
+  // the last season-year needs dekads of 2026, which are not in the data
+  const last = s.years.find((r) => r.year === 2025);
+  assert.equal(last.onset, null);
+  assert.deepEqual(last.flags, []);
+});
+
+test('season: bimodal', () => {
+  const s = season(dekads(2003, 2025, (y, i) => (i >= 11 && i <= 13 ? 40 : i >= 28 && i <= 31 ? 30 : 0)), BASE);
+  assert.equal(s.status, 'ok');
+  assert.equal(s.twoSeasons, true);
+  assert.deepEqual(s.peaks, [11, 28]);
+});
+
+test('season: a short dip does not split one season', () => {
+  const s = season(dekads(2003, 2025, (y, i) => ((i >= 9 && i <= 11) || (i >= 14 && i <= 16) ? 20 : 0)), BASE);
+  assert.equal(s.twoSeasons, false);
+});
+
+test('season: insufficient', () => {
+  assert.equal(season(dekads(2003, 2025, (y, i) => (i === 10 ? 20 : 0)), BASE).status, 'insufficient');
+  assert.equal(season([], BASE).status, 'insufficient');
+  assert.deepEqual(season([], BASE).years, []);
+});
+
+test('season: early and longer years are flagged', () => {
+  const rows = dekads(2003, 2025, (y, i) => {
+    if (y === 2010) return i >= 6 && i <= 11 ? 20 : 0;  // same length, 3 dekads early
+    if (y === 2012) return i >= 12 && i <= 17 ? 20 : 0; // late
+    if (y === 2014) return i >= 9 && i <= 18 ? 12 : 0;  // longer
+    return i >= 9 && i <= 14 ? 20 : 0;
+  });
+  const s = season(rows, BASE);
+  const f = (y) => s.years.find((r) => r.year === y);
+  assert.equal(f(2010).onset, 6);
+  assert.ok(f(2010).flags.includes('early'));
+  assert.ok(!f(2010).flags.includes('longer') && !f(2010).flags.includes('shorter'));
+  assert.ok(f(2012).flags.includes('late'));
+  assert.ok(f(2014).flags.includes('longer'));
+  assert.deepEqual(f(2011).flags, []);
+});
+
+test('dekadToDateLabel', () => {
+  assert.equal(dekadToDateLabel(0), '1–10 Jan');
+  assert.equal(dekadToDateLabel(2), '21–31 Jan');
+  assert.equal(dekadToDateLabel(5), '21–28 Feb');
+  assert.equal(dekadToDateLabel(28), '11–20 Oct');
+  assert.equal(dekadToDateLabel(35), '21–31 Dec');
+  assert.equal(dekadToDateLabel(11), '21–30 Apr');
+});
