@@ -22,3 +22,28 @@ Times are local (IST). Numbers are copied from command output.
 - Land cover fetched: ESA CCI 2020, recoded to IGBP classes (DECISIONS D9).
 - Agent P2 (classify) finished and is merged into `main`. Agents P1 (ingest), P3 (harmonize + aggregate), V1 (validate) and W1 (web core) were cut off by the usage limit and have been resumed in their worktrees under `.worktrees/`.
 - **Resume point if this stops again:** check each worktree with `git -C .worktrees/<branch> status`, resume or finish the unfinished agents, merge the branches one at a time into `main` running both test suites after each, then write `pipeline/build.py` and start Phase 2.
+
+## Gate 1: PASSED with one item open (code review not yet run)
+
+- Branches merged into `main` one at a time: p2-classify, v1-validate, p1-ingest, p3-harmonize, w1-webcore. Tests after the last merge: `pytest pipeline/tests -q` -> **107 passed**; `node --test "web/tests/*.test.js"` -> **47 passed, 0 failed**.
+- Contract fixes: JS test command uses the glob form (Node 25 rejects the directory form); fit years changed (DECISIONS D11).
+- Open: the merged-code review is run alongside Phase 3 to save time.
+
+## Gate 2: PASSED (real India data, 2000-11-01 to 2025-12-31)
+
+All numbers below are from `work/build_1.log`, `build_2.log`, `build_3.log`.
+
+- **Row accounting:** 48 input CSVs, 14,633,820 data rows (same as the sum of CSV line counts minus headers). Out: 14,633,812; clip dropped 4; duplicates dropped 4.
+- **Satellites:** Terra 567,663 (from 2000-11-01); Aqua 1,278,326 (from 2002-07-04); S-NPP 8,223,386 (from 2012-01-20); NOAA-20 4,564,437 (from 2018-04-01). No 2026 data (no FIRMS key).
+- **Chain dates (computed):** Aqua 2002-08-01, S-NPP 2012-02-01, NOAA-20 2018-04-01.
+- **Categories:** agricultural 7,678,374; forest 3,623,052; grass/shrub 1,507,039; other vegetation 9,463; urban 60,639; industrial 1,683,841; volcanic 199; offshore 71,205.
+- **Static mask:** firms_static 1,537 cells; persistent 3; volcano 3. Jharia: found (90 cells). Jamnagar: found (18 cells). **Mumbai High: not found** (the FIRMS India country file has no detections that far offshore).
+- **Stratum variant chosen: no region.** Mean leave-one-year-out median error of whole-India monthly totals: no-region 8.46 %, region 9.30 %; only no-region kept band coverage within 60-95 % on every link.
+- **Ratios (detection-weighted mean per category, chosen variant):** Aqua->S-NPP 5.9 to 9.4 for vegetation categories, 28 urban, 37 industrial. S-NPP->NOAA-20 0.97 to 1.06. **Terra->Aqua 3.1 to 4.6 for agricultural/forest/grass, not near 1** (0.83 industrial, 1.16 urban). Not patched: Terra passes at about 10:30 and Aqua at about 13:30, and vegetation fires peak in the afternoon, while industrial sources burn all day and give a ratio near 1. This means the 2000-2002 values carry the largest conversion.
+- **Step at 2012:** naive sum 6.34x; harmonized 0.97x; normal year-to-year range (10th-90th percentile) 0.79 to 1.27.
+- **Leave-one-year-out, whole-India monthly totals (median abs error / band coverage):** Terra->Aqua 14.3 % / 71 %; Aqua->S-NPP 7.9 % / 87 %; S-NPP->NOAA-20 3.2 % / 76 %.
+- **Weak spot, reported as found:** at 1-degree-box level the error is much larger and the bands are too narrow: Aqua->S-NPP 44 % / 18 % coverage; Terra->Aqua 48 % / 28 %; S-NPP->NOAA-20 9.9 % / 22 %. Small-area values before 2018 are indicative only.
+- Direct Aqua->NOAA-20 link (2018-2021): 12.1 % error, 54 % coverage, worse than the chain, so the chain is kept.
+- **Gaps:** 1 dekad with no Terra data and nothing to fill from (21-30 June 2001).
+- **Invariants:** conservation, harm_equals_weights, duplicates, date_range all pass.
+- **Files:** 26 dekad files, largest 2.1 MB, 28.8 MB total. Points 231 MB in 26 files, uploaded to the `data` release with `meta.json`.

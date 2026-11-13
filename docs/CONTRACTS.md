@@ -8,7 +8,7 @@ Every module is built against this file. Where it disagrees with `PLAN.md` or `I
 - Unit tests may use small hand-built inputs. No test contains a typed-in expected value for real data.
 - No data URL or path prefix anywhere except `config.json`.
 - Python: 3.12, run as `.venv/Scripts/python`. Tests: `.venv/Scripts/python -m pytest pipeline/tests -q`.
-- JS: plain ES modules, no bundler, no npm dependencies in `web/` modules that are unit-tested (`cells.js`, `stats.js`, `freshness.js` must import nothing from a CDN). Tests: `node --test web/tests/`.
+- JS: plain ES modules, no bundler, no npm dependencies in `web/` modules that are unit-tested (`cells.js`, `stats.js`, `freshness.js` must import nothing from a CDN). Tests: `node --test "web/tests/*.test.js"`.
 - All pipeline functions that take `con` take a `duckdb.DuckDBPyConnection`.
 
 ## 2. Constants (`pipeline/settings.py`, already written)
