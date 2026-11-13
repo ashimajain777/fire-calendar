@@ -28,3 +28,7 @@
 - The current-year dekad file is rebuilt daily and **added to the Pages artifact at deploy time, not committed**, to avoid growing git history.
 - Archive years are committed once harmonization is stable.
 - HF history is squashed weekly with `super_squash_history`.
+
+## Amendment (14 Nov 2026)
+- Points are stored as GitHub Release assets and bundled into the Pages artifact at deploy (no HF token; release assets are blocked by CORS when read directly).
+- The current-year dekad file and `meta.json` also live on the release, and one shared deploy step includes them in every deploy.

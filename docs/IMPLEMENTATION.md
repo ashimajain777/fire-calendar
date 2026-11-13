@@ -50,6 +50,20 @@
 4. **An area with no fires, or a base period of all zeros.** Expected: an empty calendar with "No hotspots detected…". Median 0 and sd 0 give "—", never NaN, Infinity or "0th percentile" for everything. The test goes in Task 7.
 5. **Stale or missing `meta.json`, or a failed file fetch.** Expected: the badge turns warning after 36 h and critical after 72 h or when the last run failed, and charts show the fetch error. The test goes in Task 10 (`freshness.test.js`).
 
+
+## Amendments (14 Nov 2026, build prompt + unattended-build decisions)
+
+These override anything below that disagrees. The exact contracts are in [`CONTRACTS.md`](CONTRACTS.md); decisions made during the build are in [`DECISIONS.md`](DECISIONS.md).
+
+1. **Deploy fix.** The daily job uploads the current-year dekad file and `meta.json` to the `data` GitHub Release. One shared deploy step (`.github/actions/deploy-site`) is used by every deploy, push-triggered or daily. It copies the release files into the Pages artifact, so a code push never drops current-year data.
+2. **Series starts November 2000.** A third link, Terra MODIS -> Aqua MODIS, is fitted on 2003-2011. Chain: Terra (2000-11 until Aqua's first full month) -> Aqua -> S-NPP -> NOAA-20. Same ratio code, same `ratios.parquet` (`link = "terra_aqua"`), same bands, its own leave-one-year-out validation. Terra outages are flagged in `gaps.parquet` and never shown as zeros. The base period stays 2003-2025.
+3. **Boundary.** Clipping and any drawn boundary use Natural Earth's India point-of-view admin-0 file (`ne_10m_admin_0_countries_ind`).
+4. **Region stratum decided by data.** Strata are region (5 deg box) x category x month, with the fallback ladder region-stratum-month -> all-India stratum-month -> stratum all-months -> all landscape (at 200 detections). Both variants (with and without region) are validated, and the one with the lower median absolute % error and acceptable band coverage is kept. Both results are shown on the Methodology page.
+5. **Known limitations to document:** the static mask is built from the last 5 years and applied to all years; land cover is a single year; ground-reported fires are not covered (no open nationwide dataset), only satellite detections.
+6. **Points host.** No Hugging Face token was available, and GitHub Release assets can't be read cross-origin by the browser (tested: blocked by CORS). Points files are stored as assets on the `data` release and bundled into the Pages artifact at deploy, so the browser reads them from the app's own origin.
+7. **File names** are `points_{YYYY}.parquet` and `dekad_{YYYY}.parquet`.
+8. **Chain switch dates** are the first day of each newer satellite's first full month of data.
+
 ---
 
 ## Schedule (24 h, H0 = start)

@@ -35,3 +35,8 @@
 - The series starts July 2002, and the base period is 2003–2025.
 - Each point carries `harm_weight`, so CSV, table and calendar always reconcile.
 - Revisit: a region dimension for global use; the direct Aqua→NOAA-20 link if it validates better; a NOAA-21 backup link.
+
+## Amendment (14 Nov 2026)
+- A Terra -> Aqua link (fitted 2003-2011) extends the series back to November 2000.
+- Strata may include a 5 degree region box; the variant is chosen by leave-one-year-out error. See `docs/CONTRACTS.md`.
+- Chain switches happen on the first day of each newer satellite's first full month.
