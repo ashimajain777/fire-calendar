@@ -47,3 +47,40 @@ All numbers below are from `work/build_1.log`, `build_2.log`, `build_3.log`.
 - **Gaps:** 1 dekad with no Terra data and nothing to fill from (21-30 June 2001).
 - **Invariants:** conservation, harm_equals_weights, duplicates, date_range all pass.
 - **Files:** 26 dekad files, largest 2.1 MB, 28.8 MB total. Points 231 MB in 26 files, uploaded to the `data` release with `meta.json`.
+
+## Credentials found; Gate 2 RERUN: PASSED (India, 2000-11-01 to 2026-11-13, MCD12Q1 land cover)
+
+`.env` was in `docs/` (git-ignored, never committed). With it: 2026 data fetched from the FIRMS Area API (297 chunk files, 37 minutes), land cover switched to MODIS MCD12Q1 2024, `FIRMS_MAP_KEY` set as an Actions secret. Numbers from `work/build_full.log` and `build_pub.log`:
+
+- **Rows:** 345 input files, 18,232,525 rows in; 16,783,415 out; 1,128,680 outside India (API box is wider than India); 320,430 duplicates.
+- **2026 detections:** NOAA-20 612,058 (to 13 Nov); S-NPP 546,261 (to 2 Nov, its last day); NOAA-21 909,572; Aqua 53,351; Terra 28,361.
+- **Categories:** agricultural 8,497,469; forest 2,976,951; grass/shrub 3,197,793; other vegetation 24,756; urban 93,505; industrial 1,956,433; volcanic 240; offshore 36,268.
+- **Static mask:** firms_static 1,537; persistent 3; volcano 3. Jharia found (90 cells), Jamnagar found (18), Mumbai High not found.
+- **Variant:** no region (8.65 % vs 9.13 % mean error; only no-region keeps coverage within 60-95 % on every link).
+- **Ratios (weighted mean by category):** Terra->Aqua 3.2 / 4.0 / 3.7 for agricultural / forest / grass (0.83 industrial); Aqua->S-NPP 7.8 to 12.6 vegetation, 24 urban, 37 industrial; S-NPP->NOAA-20 0.95 to 1.08.
+- **Step at 2012:** naive 6.36x; harmonized 0.98x; normal year-to-year range 0.79 to 1.26.
+- **Leave-one-year-out, whole-India monthly (error / band coverage):** Terra->Aqua 14.9 % / 81 %; Aqua->S-NPP 7.9 % / 88 %; S-NPP->NOAA-20 3.1 % / 76 %.
+- **1-degree boxes (weak spot):** Terra->Aqua 47 % / 28 %; Aqua->S-NPP 44 % / 19 %; S-NPP->NOAA-20 10 % / 22 %.
+- **Direct Aqua->NOAA-20 (2019-2021):** 8.5 % error, 42 % coverage.
+- **Gaps:** 6 dekads. Unfilled (Terra only): 11-30 June 2001, 1-10 July 2001, 11-31 March 2002. Filled from Terra: 1-10 August 2002 (Aqua).
+- **Invariants:** all four pass. Dekad files: largest 2.2 MB, 30.7 MB total. 30 files uploaded to the `data` release (27 points files, `dekad_2026.parquet`, `meta.json`, `gaps.parquet`).
+- **Code review** (independent agent, read-only): no error in the headline series; recomputed every in-chain weight from the ratios with 0 mismatches. Its findings 1 and 2 are fixed (DECISIONS D13, D14). Not fixed, listed for the report: fire-days are counted per category, so summing across categories counts a cell-day once per category (+11 % in 2021); Terra outages inside fit years bias the December Terra->Aqua ratio by about +3 %; SP/NRT dedup needs identical coordinates.
+
+## Status now
+
+**Done and merged on `main`** (tests: 114 Python passed, 72 JS passed):
+- Pipeline: ingest, classify, harmonize (3 links, both variants), aggregate, validate, publish, full build script, 2026 API fetch.
+- Daily job (`pipeline/daily.py`, `daily.yml`) and the shared deploy step. Tested with mocks only; **not yet run in GitHub Actions**.
+- Web: cells, stats, freshness, db, calendar modules; main page (map, area forms, calendar, KPIs, latest-month card, CSV downloads); Methodology page.
+
+**Left, in order:**
+1. Push and deploy; check the three walkthrough areas on the live site (Gate 3).
+2. Trend chart with bands, anomaly bars, chart image downloads (Task 8).
+3. Category calendars, mask layer, Season tab (Tasks 11-12).
+4. Run the daily workflow once for real, plus the bad-key failure test.
+5. Accessibility, dark mode, mobile pass and palette validation (Task 13).
+6. Cross-check script (browser vs Python) on walkthrough areas and 5 random boxes.
+7. Fresh verification agent and `docs/BUILD_REPORT.md` (Phase 5).
+8. Stretch (comparison, timelapse, climate, exposure, alerts): not started; only if time remains.
+
+**Resume point if this stops:** `main` is the source of truth; all agent branches so far are merged. Continue from item 1 above.

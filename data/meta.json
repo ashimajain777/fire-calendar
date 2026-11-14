@@ -1,9 +1,9 @@
 {
   "status": "ok",
-  "git_sha": "34eacebadad5e44e67d17c5b0f68f57ce8273260",
+  "git_sha": "cae9477ee2a9716c9f2736f6c831c3cc1212b442",
   "coverage_start": "2000-11-01",
-  "coverage_end": "2025-12-31",
-  "landcover_source": "ESA CCI / C3S Land Cover 2020 v2.1.1 (300 m), recoded to IGBP classes",
+  "coverage_end": "2026-11-13",
+  "landcover_source": "MODIS MCD12Q1 v061 LC_Type1 (IGBP), 2024, 500 m, via NASA AppEEARS",
   "boundary_source": "Natural Earth 1:10m admin-0 countries, India point-of-view (ne_10m_admin_0_countries_ind)",
   "chain": {
     "aqua_start": "2002-08-01",
@@ -13,22 +13,26 @@
   "variant": "noregion",
   "sources": {
     "NOAA20": {
-      "last_success_utc": "2026-11-13T22:31:00+00:00",
-      "coverage_end": "2025-12-31"
+      "last_success_utc": "2026-11-14T04:20:16+00:00",
+      "coverage_end": "2026-11-13"
     },
     "Terra": {
-      "last_success_utc": "2026-11-13T22:31:00+00:00",
-      "coverage_end": "2025-12-31"
+      "last_success_utc": "2026-11-14T04:20:16+00:00",
+      "coverage_end": "2026-11-13"
     },
     "Aqua": {
-      "last_success_utc": "2026-11-13T22:31:00+00:00",
-      "coverage_end": "2025-12-31"
+      "last_success_utc": "2026-11-14T04:20:16+00:00",
+      "coverage_end": "2026-11-13"
     },
     "SNPP": {
-      "last_success_utc": "2026-11-13T22:31:00+00:00",
-      "coverage_end": "2025-12-31"
+      "last_success_utc": "2026-11-14T04:20:16+00:00",
+      "coverage_end": "2026-11-02"
+    },
+    "NOAA21": {
+      "last_success_utc": "2026-11-14T04:20:16+00:00",
+      "coverage_end": "2026-11-13"
     }
   },
   "last_error": null,
-  "generated_utc": "2026-11-13T22:31:00+00:00"
+  "generated_utc": "2026-11-14T04:20:16+00:00"
 }

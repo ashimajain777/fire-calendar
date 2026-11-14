@@ -65,3 +65,26 @@ Each entry: what was decided, and why. Newest at the bottom.
 - **Points host stays GitHub Release -> Pages (D3).** It is already deployed and tested with real range reads, it is same-origin, and switching to Hugging Face now would add cross-origin risk for no gain. Moving later is one config line.
 - `FIRMS_MAP_KEY` is set as a GitHub Actions secret with `gh secret set`.
 - Because classification and ratios depend on land cover, every Gate 2 number is recomputed; the earlier Gate 2 entry in BUILD_LOG is kept as history and marked superseded.
+
+## D13. Multi-day satellite outages are flagged as gaps
+
+- The code review found partial outages passing as real lows (Terra had no data 20-28 March 2002, in peak season).
+- Real data: runs of days with no chain-satellite detection anywhere in India are 2-4 days long in the monsoon (cloud), and 7, 9 and 19 days long in three known outages. Rule: a run of 5 or more such days is an outage, and every dekad it touches goes into `gaps.parquet`.
+- A gap dekad is filled from another convertible satellite if one has data; otherwise it is "no data".
+- The calendar shows a month as "no data" when any of its dekads is an unfilled gap (it was "all three"), so an incomplete total is never shown as a low value.
+
+## D14. Direct Aqua -> NOAA-20 benchmark uses 2019-2021
+
+- Same reason as D11: NOAA-20 starts 1 April 2018, so 2018 is partial. The earlier figure (12.1 % error) was inflated by this.
+
+## D15. Hotspots CSV includes low-confidence detections
+
+- The CSV row count equals the calendar's raw count plus the low-confidence count for the same filter (checked on November 2024, Punjab box: 19,807 + 901 = 20,708). Low-confidence points are kept in the files (classify, don't delete) and marked `conf_class = 'l'` with weight 0.
+
+## D16. API fetch box is wider than India; clipping removes the rest
+
+- The Area API is queried by bounding box (68-98 E, 6-38 N), which includes neighbouring countries. The 2026 rebuild dropped 1,128,680 rows outside the India polygon and 320,430 duplicate rows (overlapping API chunks and SP/NRT overlap). Both counts are logged per year in `work/build_full.log`.
+
+## D17. NOAA-21 is stored for 2026 only
+
+- FIRMS has no per-country file for NOAA-21, so 2023-2025 NOAA-21 detections are not in the archive. 2026 NOAA-21 detections are fetched, stored and exported with weight 0. They don't affect the harmonized series.
