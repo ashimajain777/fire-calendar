@@ -123,3 +123,11 @@ Each entry: what was decided, and why. Newest at the bottom.
 - The 25 % rule is unchanged. A separate line reports any other bump holding 10 % to 25 % of the typical annual total as "Secondary peak: <dates>, <share> % of the year".
 - **How a bump is measured (decided after seeing the data, stated here for that reason):** the first implementation reused the season clusters (dekads at 20 % or more of the main peak). On the real Punjab profile that cut the spring bump to one dekad holding 9.1 %, because its shoulder dekad sits at 18 % of the November peak. A small peak should not be measured against a much larger one, so a secondary bump now runs from its local maximum down to the troughs on either side (a trough shared with the main season stays with the main season), and its displayed dates are its dekads at 20 % or more of its own peak. Result on Punjab: 21-30 Apr to 11-20 May, 18.5 % of the year.
 - Thresholds (10 %, 20 % of own peak) were set with Punjab in view; they are not tuned per area, and other areas get the same rule.
+
+## D24. Exposure is counted per month (B3)
+
+- Source: GHS-POP R2023A, epoch 2020, 30 arc-second (about 1 km), from JRC (no login). Summed into 0.01° cells over the India bounding box (2,857,103 cells).
+- A person counts as exposed in a month when their 0.01° cell contains an in-chain landscape detection or touches one (3 × 3 neighbourhood, roughly 1-2 km). They are counted once per month, in their own 0.1° cell, so monthly totals add up exactly over any area.
+- **Deviation:** the KPI shows the busiest month in the selected period (and the latest month), not a union over the whole period. A union over arbitrary multi-year periods would need per-person-cell month lists (tens of millions of rows) in the browser.
+- The exposure table is rebuilt with each full rebuild, not by the daily job (shortcut; the daily job could add it later). In-chain detections are used, so values before 2012 (MODIS) are lower because MODIS detected fewer small fires; the KPI says so.
+- Published as 27 tiles under `data/exposure/` (5.0 MB), read like the dekad tiles.

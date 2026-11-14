@@ -62,7 +62,19 @@ def totals(con, bbox) -> dict:
       SELECT count(*) FROM (SELECT DISTINCT cell_id, acq_date FROM p
         WHERE CASE WHEN filled_from IS NULL THEN in_baseline_chain ELSE satellite = filled_from AND conf_class != 'l' END)
     """).fetchone()[0]
-    return {"bbox": bbox, "cells": r[0], "fire_days_landscape": int(fd), "harm_landscape": round(r[1] or 0, 1),
+    # exposure recomputed from the points and the population table (not from the published exposure tiles)
+    ex = None
+    if (ROOT / "work" / "pop001.parquet").exists():
+        if not con.execute("SELECT count(*) FROM duckdb_tables() WHERE table_name = '_exp_full'").fetchone()[0]:
+            from pipeline.exposure import exposure_sql
+            con.execute(f"CREATE TEMP TABLE _exp_full AS {exposure_sql(pts, (ROOT / 'work' / 'pop001.parquet').as_posix())}")
+        ex = con.execute(f"""
+          WITH a AS (SELECT cell_id FROM '{cells}' WHERE in_coverage
+                     AND lat_c >= {s} AND lat_c <= {n} AND lon_c >= {w} AND lon_c <= {e})
+          SELECT year, month, sum(exposed_pop) v FROM _exp_full WHERE cell_id IN (SELECT cell_id FROM a)
+          GROUP BY 1, 2 ORDER BY v DESC LIMIT 1""").fetchone()
+    return {"bbox": bbox, "cells": r[0], "fire_days_landscape": int(fd),
+            "exposure_peak": [ex[0], ex[1], round(ex[2])] if ex else None, "harm_landscape": round(r[1] or 0, 1),
             "raw_landscape": int(r[2] or 0), "points_all": int(r[3] or 0),
             "top_month": [top[0], top[1], round(top[2], 1)] if top else None}
 

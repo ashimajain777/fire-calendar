@@ -218,6 +218,7 @@ function years(range) {
   const b = ym(range.to).year;
   return coverageYears.filter((y) => y >= a && y <= b);
 }
+let exposureTiles = null; // tiles of the monthly exposure table (DECISIONS D24)
 let dekadTiles = null; // tile ids holding archive years (<= archiveEnd), from meta.json
 let archiveEnd = null;
 export const tileOf = (cellId) => Math.floor(Math.floor(cellId / 3600) / 50) * 72 + Math.floor((cellId % 3600) / 50);
@@ -251,6 +252,7 @@ export async function meta(config) {
     coverageYears = yearsBetween(+m.coverage_start.slice(0, 4), +m.coverage_end.slice(0, 4));
     coverageMonths = { from: m.coverage_start.slice(0, 7), to: m.coverage_end.slice(0, 7) };
     [dekadTiles, archiveEnd] = Array.isArray(m.dekad_tiles) ? [m.dekad_tiles, m.archive_end] : [null, null];
+    exposureTiles = Array.isArray(m.exposure_tiles) ? m.exposure_tiles : null;
     return m;
   } catch {
     return null;
@@ -273,6 +275,19 @@ export async function calendar(db, area, range, cats, metric) {
 export async function fireDaysBase(db, area, range, cats) {
   const [r] = await db.query(`SELECT coalesce(sum(fd_base), 0)::BIGINT AS fd FROM ${cellDekadsSQL(dekadUrls(db, range, area), area.ranges, cats)} WHERE ${monthsSQL(range)}`);
   return r.fd;
+}
+
+// People living within about 1-2 km of a detected landscape fire, per month, for the area (DECISIONS D24).
+export function exposureSQL(urls, ranges, range) {
+  return `SELECT year::INT AS year, month::INT AS month, sum(exposed_pop)::DOUBLE AS people
+FROM ${fileList(urls)} WHERE ${rangesSQL(ranges)} AND ${monthsSQL(range)} GROUP BY year, month ORDER BY year, month`;
+}
+
+export async function exposure(db, area, range) {
+  if (!exposureTiles) return null;
+  const want = new Set(area.ids.map(tileOf));
+  const urls = exposureTiles.filter((t) => want.has(t)).map((t) => db.url('tables', `exposure/exposure_t${t}.parquet`));
+  return urls.length ? db.query(exposureSQL(urls, area.ranges, range)) : [];
 }
 
 export const dekadSeries = (db, area, cats, metric) => db.query(dekadSeriesSQL(dekadUrls(db, null, area), area.ranges, cats, metric));
