@@ -5,10 +5,6 @@ from pathlib import Path
 import duckdb
 import numpy as np
 import pyarrow as pa
-import rasterio
-from rasterio.enums import Resampling
-from rasterio.transform import from_origin
-from rasterio.vrt import WarpedVRT
 
 from pipeline.settings import (CATEGORY, MASK_MIN_DAYS, MASK_MIN_MONTHS, MASK_MIN_TYPED, MASK_MIN_YEARS,
                                MASK_WINDOW_YEARS)
@@ -26,6 +22,11 @@ def _q(path) -> str:
 
 
 def build_landcover_lookup(tifs: list[Path], bbox: tuple, clip_wkt: str, out001: Path, out_cells: Path) -> None:
+    # rasterio is only needed for this one-off step, so the daily job can run without it
+    import rasterio
+    from rasterio.enums import Resampling
+    from rasterio.transform import from_origin
+    from rasterio.vrt import WarpedVRT
     w, s, e, n = bbox
     width, height = round((e - w) * 100), round((n - s) * 100)
     grid001 = np.zeros((height, width), dtype="uint8")   # 0 = no data yet
