@@ -85,6 +85,62 @@ export function sensorTotalsSQL(urls, ranges, cats, range) {
 FROM ${fileList(urls)} WHERE ${rangesSQL(ranges)} AND ${catsSQL(cats)} AND ${monthsSQL(range)}`;
 }
 
+// One pass over the dekad files for everything the main page shows (each extra pass costs a round of file reads).
+const SENSORS = ['n_terra', 'n_aqua', 'n_snpp', 'n_noaa20', 'n_noaa21'];
+export function overviewSQL(urls, ranges, cats) {
+  return `SELECT year::INT AS year, month::INT AS month, dekad::INT AS dekad, harm_from::INT AS harm_from,
+  sum(harm_n)::DOUBLE AS harm_n, sum(harm_n_lo)::DOUBLE AS harm_n_lo, sum(harm_n_hi)::DOUBLE AS harm_n_hi,
+  sum(harm_fd)::DOUBLE AS harm_fd, sum(harm_fd_lo)::DOUBLE AS harm_fd_lo, sum(harm_fd_hi)::DOUBLE AS harm_fd_hi,
+  bool_or(processing = 1) AS provisional, ${SENSORS.map((c) => `sum(${c})::INT AS ${c}`).join(', ')}, sum(n_lowconf)::INT AS lowconf
+FROM ${fileList(urls)} WHERE ${rangesSQL(ranges)} AND ${catsSQL(cats)}
+GROUP BY year, month, dekad, harm_from ORDER BY year, month, dekad, harm_from`;
+}
+
+// Same rows as calendarSQL + fillMonths, computed from overviewSQL rows.
+export function overviewCalendar(rows, metric, range) {
+  const m = metricCol(metric);
+  const a = ym(range.from);
+  const b = ym(range.to);
+  const months = new Map();
+  for (const r of rows) {
+    const k = r.year * 100 + r.month;
+    if (k < a.year * 100 + a.month || k > b.year * 100 + b.month) continue;
+    let o = months.get(k);
+    if (!o) months.set(k, o = { year: r.year, month: r.month, value: 0, lo: 0, hi: 0, harm_from: null, provisional: false, raw: 0, lowconf: 0, w: new Map() });
+    o.value += r[m];
+    o.lo += r[`${m}_lo`];
+    o.hi += r[`${m}_hi`];
+    o.provisional = o.provisional || !!r.provisional;
+    o.raw += SENSORS.reduce((t, c) => t + r[c], 0);
+    o.lowconf += r.lowconf;
+    o.w.set(r.harm_from, (o.w.get(r.harm_from) || 0) + r[m]);
+  }
+  return fillMonths([...months.values()].map(({ w, ...o }) => ({ ...o, harm_from: [...w].sort((p, q) => q[1] - p[1])[0][0] })), range);
+}
+
+export function overviewDekads(rows, metric) {
+  const m = metricCol(metric);
+  const out = new Map();
+  for (const r of rows) {
+    const k = (r.year * 12 + r.month) * 4 + r.dekad;
+    const o = out.get(k);
+    if (o) o.value += r[m];
+    else out.set(k, { year: r.year, month: r.month, dekad: r.dekad, value: r[m] });
+  }
+  return [...out.values()];
+}
+
+export function overviewSensors(rows, range) {
+  const a = ym(range.from);
+  const b = ym(range.to);
+  const out = Object.fromEntries(SENSORS.map((c) => [c, 0]));
+  for (const r of rows) {
+    const k = r.year * 100 + r.month;
+    if (k >= a.year * 100 + a.month && k <= b.year * 100 + b.month) for (const c of SENSORS) out[c] += r[c];
+  }
+  return out;
+}
+
 const pointsWhere = (urls, ranges, cats, range) => `FROM ${fileList(urls)}
 WHERE ${rangesSQL(ranges)} AND ${datesSQL(range)} AND ${catsSQL(cats)}`;
 
@@ -186,6 +242,16 @@ export async function calendar(db, area, range, cats, metric) {
 
 export const dekadSeries = (db, area, cats, metric) => db.query(dekadSeriesSQL(dekadUrls(db), area.ranges, cats, metric));
 export const annual = (db, area, cats, metric) => db.query(annualSQL(dekadUrls(db), area.ranges, cats, metric));
+
+// Everything the main page needs from one query: both calendars, the dekad series and raw counts by satellite.
+export async function overview(db, area, range, cats, metric) {
+  const rows = await db.query(overviewSQL(dekadUrls(db), area.ranges, cats));
+  return {
+    calendars: { harm_n: overviewCalendar(rows, 'harm_n', clip(range)), harm_fd: overviewCalendar(rows, 'harm_fd', clip(range)) },
+    dekadRows: overviewDekads(rows, metric),
+    sensors: overviewSensors(rows, range),
+  };
+}
 
 export async function sensorTotals(db, area, range, cats) {
   const urls = dekadUrls(db, range);

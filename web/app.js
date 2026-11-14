@@ -333,10 +333,7 @@ async function run() {
   emit('fc:loading', { area, range, cats, metric });
   try {
     const t0 = performance.now();
-    const [calN, calFd, dekadRows, sensors] = await Promise.all([
-      q.calendar(db, area, range, cats, 'harm_n'), q.calendar(db, area, range, cats, 'harm_fd'),
-      q.dekadSeries(db, area, cats, metric), q.sensorTotals(db, area, range, cats),
-    ]);
+    const { calendars: { harm_n: calN, harm_fd: calFd }, dekadRows, sensors } = await q.overview(db, area, range, cats, metric);
     if (my !== state.seq) return;
     const calendarRows = metric === 'harm_n' ? calN : calFd;
     const ctx = {

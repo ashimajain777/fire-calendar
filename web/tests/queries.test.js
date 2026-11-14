@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calendarSQL, dekadSeriesSQL, annualSQL, sensorTotalsSQL, pointsSQL, pointsCSVSQL, pointsCountSQL,
-  fillMonths, monthlyTable, yearsBetween, baseYearsFor, CATEGORY_NAMES,
+  fillMonths, monthlyTable, overviewSQL, overviewCalendar, overviewDekads, overviewSensors, yearsBetween, baseYearsFor, CATEGORY_NAMES,
 } from '../queries.js';
 
 const URLS = ['u/dekad_2001.parquet', 'u/dekad_2002.parquet'];
@@ -26,7 +26,7 @@ test('no builder contains a data location of its own', () => {
   const all = [
     calendarSQL(URLS, RANGES, [0], 'harm_n', RANGE), dekadSeriesSQL(URLS, RANGES, [0], 'harm_n'),
     annualSQL(URLS, RANGES, [0], 'harm_n'), sensorTotalsSQL(URLS, RANGES, [0], RANGE),
-    pointsSQL(URLS, RANGES, [0], RANGE, 10), pointsCSVSQL(URLS, RANGES, [0], RANGE), pointsCountSQL(URLS, RANGES, [0], RANGE),
+    overviewSQL(URLS, RANGES, [0]), pointsSQL(URLS, RANGES, [0], RANGE, 10), pointsCSVSQL(URLS, RANGES, [0], RANGE), pointsCountSQL(URLS, RANGES, [0], RANGE),
   ];
   for (const sql of all) {
     const literals = [...sql.matchAll(/'([^']*\.parquet)'/g)].map((m) => m[1]);
@@ -87,4 +87,21 @@ test('monthlyTable keeps the months in range and takes percentile and z from the
 test('year helpers', () => {
   assert.deepEqual(yearsBetween(2000, 2003), [2000, 2001, 2002, 2003]);
   assert.deepEqual(baseYearsFor({ coverage_start: '2000-11-01', coverage_end: '2005-03-02' }), [2003, 2004, 2005]);
+});
+
+test('overview rows reduce to the calendar, the dekad series and the sensor totals', () => {
+  const row = (year, month, dekad, harm_from, n, extra = {}) => ({
+    year, month, dekad, harm_from, harm_n: n, harm_n_lo: n - 1, harm_n_hi: n + 1, harm_fd: 1, harm_fd_lo: 1, harm_fd_hi: 1,
+    provisional: false, n_terra: 0, n_aqua: 2, n_snpp: 3, n_noaa20: 0, n_noaa21: 0, lowconf: 1, ...extra,
+  });
+  const rows = [row(2001, 4, 1, 2, 10), row(2001, 4, 1, 3, 4), row(2001, 4, 3, 2, 5, { provisional: true }), row(2003, 1, 1, 1, 99)];
+  const cal = overviewCalendar(rows, 'harm_n', RANGE);
+  assert.equal(cal.length, 12);
+  assert.deepEqual(cal[1], { year: 2001, month: 4, value: 19, lo: 16, hi: 22, harm_from: 2, provisional: true, raw: 15, lowconf: 3 });
+  assert.equal(cal[0].value, 0);
+  assert.equal(overviewCalendar(rows, 'harm_fd', RANGE)[1].value, 3);
+  assert.deepEqual(overviewDekads(rows, 'harm_n'), [
+    { year: 2001, month: 4, dekad: 1, value: 14 }, { year: 2001, month: 4, dekad: 3, value: 5 }, { year: 2003, month: 1, dekad: 1, value: 99 },
+  ]);
+  assert.deepEqual(overviewSensors(rows, RANGE), { n_terra: 0, n_aqua: 6, n_snpp: 9, n_noaa20: 0, n_noaa21: 0 });
 });
