@@ -109,3 +109,10 @@ Each entry: what was decided, and why. Newest at the bottom.
 - Harmonized fire-days for a selection = union count × (sum of the categories' harmonized fire-days / sum of their raw fire-days) in that cell and period. From NOAA-20 on the ratio is 1, so this is exact; before that it is the categories' own conversion, weighted by their fire-days.
 - Chosen over storing precomputed unions (landscape, all, singles), which would be exact only for those combinations.
 - Measured on 2021 landscape categories: per-category sum 233,561 vs union 210,880 (the old view overcounted by 10.8 %).
+
+## D22. Dekad archive is split into 5-degree tiles; map points load on demand
+
+- Measured on the live site: DuckDB-WASM 1.32 reads each file with one plain GET (no `Range` header) and keeps it in memory. With full reads disabled it refuses to open the file, even for files GitHub Pages serves uncompressed (`.zip`/`.gz` probes). Pages also gzips `.parquet` (`Content-Encoding: gzip` on 206 responses), so its ranges refer to compressed bytes. **The Gate 0 "range reads" result was only true for curl, not for DuckDB.** So every query downloaded all 27 yearly files (about 30 MB) for any area.
+- Fix: archive years (2000 to the year before the current one) are published as one file per 5-degree tile (27 tiles, 31 MB in total); the browser picks the tiles an area overlaps from `meta.json` (`dekad_tiles`, `archive_end`). Later years stay one file per year (the daily job is unchanged).
+- The map no longer loads the latest month's points after every query. That pulled the whole current-year points file (34 MB) and delayed the next query; points now load when a month is selected.
+- Tried and dropped: a background warm-up of file metadata (no measurable gain: first query 14.9 s before and after).

@@ -134,3 +134,18 @@ All numbers below are from `work/build_1.log`, `build_2.log`, `build_3.log`.
 - Still open: first query after page load 8-15 s; screen-reader and phone checks need a human; stretch features not built.
 
 **Verdict: Ready with issues.** Report: `docs/BUILD_REPORT.md`
+
+## Round 2, Phase A (16:49 IST onward)
+
+- **A1 fire-days union: done.** `day_mask` per dekad row; browser ORs masks across selected categories per cell-dekad (D21). 2021 landscape: per-category sum 233,561 vs union 210,880 (old view +10.8 %). New invariant `day_mask` (bit count = fd_base) passes; tests: `test_fire_days_union_across_categories`, `test_day_mask_last_dekad_31st`.
+- **A2 honest bands: done.** `web/uncertainty.js`: error per link interpolated on log area between 1° box and whole-region LOYO error (read from `summary.json`), combined in quadrature along the chain; bands widened when wider; note for areas under five 1° boxes. 4 unit tests; Methodology text added.
+- **A3 first query: done.** Root cause: DuckDB-WASM downloads whole files (D22). Archive dekad data now in 27 tiles; points on demand. `timing.mjs`, live site:
+
+| | Before (round 1 final) | Warm-up only | Tiles (now) |
+|---|---|---|---|
+| District 1°×1°, 1st query | 14.5 s | 14.9 s | **1.8 s** |
+| District, later queries | 1.7-1.8 s | 1.4 s | **0.19-0.21 s** |
+| All India, 1st query | 14.3 s | 17.2 s | 18.7 s |
+| All India, later queries | 5.1 s | 7.4-9.3 s | 6.7 s |
+
+  All-India later queries miss the 6 s target by 0.7 s; the A1 union step costs about 1.6 s there.
