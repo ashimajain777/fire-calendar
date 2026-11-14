@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Methodology: Burning Activity Calendar</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* Series colours for this page's charts: the documented categorical palette, in slot order (PLAN section 8.3). */
+  :root { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; }
+  }
+  :root[data-theme="dark"] { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; }
+
+  .method { max-width: 980px; margin: 0 auto; padding: var(--gutter); display: flex; flex-direction: column; gap: 32px; }
+  .method section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .method p, .method li { max-width: 72ch; }
+  .method ul { margin: 0; padding-left: 20px; }
+  .method h3 { margin-top: 8px; }
+  .table-scroll { overflow-x: auto; }
+  .chart { min-width: 0; color: var(--ink); }
+  .chart svg { max-width: 100%; height: auto; }
+  .notice--warning { border-left-color: var(--status-warning); background: color-mix(in srgb, var(--status-warning) 14%, var(--surface-1)); }
+  .legend-line { flex: none; width: 22px; height: 0; border-top: 3px solid; }
+  .legend-line--dashed { border-top-style: dashed; }
+  .legend-band { flex: none; width: 22px; height: 12px; background: var(--ink); opacity: 0.18; }
+  .legend-symbol { flex: none; }
+</style>
+</head>
+<body>
+<header class="app-header">
+  <h1>Burning Activity Calendar: methodology</h1>
+  <a href="index.html">Back to the calendar</a>
+</header>
+
+<main class="method">
+  <div id="status" class="notice" role="status" aria-live="polite">Loading the validation files…</div>
+
+  <section aria-labelledby="h-approach">
+    <h2 id="h-approach">The problem and the approach</h2>
+    <div id="approach"></div>
+  </section>
+
+  <section aria-labelledby="h-chart">
+    <h2 id="h-chart">Before and after</h2>
+    <p>Hotspots per year over the whole of India, landscape fires only (agricultural, forest, grass / shrub, other vegetation). The coloured lines are what each satellite reported. The dashed line adds them all up. The dark line is the harmonized series, and the shaded band is its range.</p>
+    <div id="annual"></div>
+  </section>
+
+  <section aria-labelledby="h-step">
+    <h2 id="h-step">Did the jump go away?</h2>
+    <div id="step"></div>
+  </section>
+
+  <section aria-labelledby="h-loyo">
+    <h2 id="h-loyo">How large is the conversion error?</h2>
+    <p>Each conversion was tested by leaving one year out, fitting the ratios on the other years, and predicting the year left out. The error is the median absolute percentage difference between predicted and observed counts. Band coverage is the share of observed values that fall inside the band; a 10th–90th percentile band should cover about 80 %.</p>
+    <div id="loyo"></div>
+  </section>
+
+  <section aria-labelledby="h-variant">
+    <h2 id="h-variant">Which version of the ratios is used</h2>
+    <p>Two versions were fitted: one ratio per category and month for all of India ("no region"), and one per 5° box, category and month ("region"). The table compares them on whole-India monthly totals.</p>
+    <div id="variant"></div>
+  </section>
+
+  <section aria-labelledby="h-direct">
+    <h2 id="h-direct">Why a chain and not one direct step</h2>
+    <div id="direct"></div>
+  </section>
+
+  <section aria-labelledby="h-breakdown">
+    <h2 id="h-breakdown">Where the error is larger</h2>
+    <p>The same leave-one-year-out error, split by fire category and by calendar month, for each conversion.</p>
+    <div id="breakdown"></div>
+  </section>
+
+  <section aria-labelledby="h-ratios">
+    <h2 id="h-ratios">The conversion ratios</h2>
+    <p>One ratio is fitted per conversion, category and calendar month. This table summarises them: the mean across months (weighted by the number of detections), and the lowest and highest month. Where a category and month had fewer than 200 detections, a wider pool is used instead; the last column says how often and which pool.</p>
+    <div id="ratios"></div>
+  </section>
+
+  <section aria-labelledby="h-class">
+    <h2 id="h-class">Fire types and the static-source mask</h2>
+    <p>Every hotspot is labelled, never deleted. The label comes from the FIRMS type field, the static-source mask, and the land cover at the hotspot's location. Only the four landscape categories are shown by default.</p>
+    <div id="categories"></div>
+    <h3>Static-source mask</h3>
+    <p>The mask marks 0.01° cells (about 1.1 km) that hold a fixed heat source such as a gas flare, a steel plant or a brick kiln. It is built from the last 5 complete years of data. A cell joins the mask if either rule holds:</p>
+    <ul>
+      <li>FIRMS itself tagged at least 3 detections there as a static land source or as a volcano.</li>
+      <li>Fire was detected there on at least 30 different days in at least 3 of the 5 years, spread over at least 6 calendar months in one year. The month spread keeps crop-residue cells, which burn on many days in two short seasons, out of the mask.</li>
+    </ul>
+    <div id="mask"></div>
+    <h3>Data gaps</h3>
+    <div id="gaps"></div>
+  </section>
+
+  <section aria-labelledby="h-sources">
+    <h2 id="h-sources">Data sources and versions</h2>
+    <p>Hotspots are NASA FIRMS active fire detections: MODIS Collection 6.1 (Terra and Aqua, 1 km) and VIIRS 375 m (S-NPP and NOAA-20). Low-confidence detections are kept in the files but are not counted.</p>
+    <div id="sources"></div>
+  </section>
+
+  <section aria-labelledby="h-limits">
+    <h2 id="h-limits">Known limitations</h2>
+    <ul>
+      <li>India only.</li>
+      <li id="limit-coverage"></li>
+      <li>The static-source mask is built from the last 5 years and applied to all years. A kiln or plant built recently can label fires from years before it existed as "industrial".</li>
+      <li>Land cover is a single year (the product is named under data sources above). Land that changed use over the record is labelled by what it was in that year.</li>
+      <li>Ground-reported fires are not covered. India has no open nationwide dataset of them, so only satellite detections are counted.</li>
+      <li>Areas are built from a 0.1° grid (cells of about 11 km).</li>
+      <li>Season start and end dates are accurate to about ±10 days.</li>
+      <li>The Mumbai High offshore flares are not in the FIRMS India country file, so they are absent here.</li>
+    </ul>
+  </section>
+</main>
+
+<script type="module">
+  import { init } from './methodology.js';
+  init();
+</script>
+</body>
+</html>
