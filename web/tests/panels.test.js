@@ -208,3 +208,9 @@ test('seasonTable: length in dekads and approximate days', () => {
   assert.deepEqual(row, { year: '2010', onset: '1–10 Apr', end: '21–31 May', length: '6 dekads (about 60 days)', flags: '—' });
   assert.equal(seasonTable(s)[0].year, '2025'); // newest first
 });
+
+test('seasonSentence adds the secondary peak with its share', async () => {
+  const { seasonSentence } = await import('../panel-season.js');
+  const s = { status: 'ok', twoSeasons: false, onset: 28, end: 33, peak: 30, peaks: [30], secondary: [{ peak: 11, from: 10, to: 11, share: 0.178 }] };
+  assert.match(seasonSentence(s), /Secondary peak: 11–20 Apr to 21–30 Apr, 18 % of the year\.$/);
+});

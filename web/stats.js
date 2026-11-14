@@ -136,7 +136,7 @@ const DAY_MS = 86400000;
 // bounds (optional): {firstDataDate, lastDataDate} as Date or 'YYYY-MM-DD'. With them, a season-year is complete
 // only when the data covers all of its 36 dekads; without them, completeness is judged from the newest row.
 export function season(dekadRows, baseYears, bounds = {}) {
-  const none = { status: 'insufficient', start: null, onset: null, peak: null, end: null, twoSeasons: false, peaks: [], years: [] };
+  const none = { status: 'insufficient', start: null, onset: null, peak: null, end: null, twoSeasons: false, peaks: [], secondary: [], years: [] };
   const zeros = new Array(36).fill(0);
   const byYear = new Map();
   let lastPos = -Infinity; // year * 36 + dekad index of the newest row
@@ -170,6 +170,13 @@ export function season(dekadRows, baseYears, bounds = {}) {
     .sort((a, b) => ((a[0] - start + 36) % 36) - ((b[0] - start + 36) % 36));
   const twoSeasons = big.length >= 2;
   const peaks = twoSeasons ? big.map((c) => c.reduce((best, i) => (clim[i] > clim[best] ? i : best))) : [peak];
+  // Secondary peaks: a separate cluster with >= 10 % of the typical year that is not a season of its own
+  // (added after Punjab's 17.8 % spring wheat burning; see DECISIONS D23). The 25 % two-season rule is unchanged.
+  const secondary = clusters(clim, peakValue)
+    .filter((c) => !c.includes(peak) && !big.includes(c))
+    .map((c) => ({ c, share: sum(c.map((i) => clim[i])) / total }))
+    .filter((x) => x.share >= 0.1 && x.share < 0.25)
+    .map(({ c, share }) => ({ peak: c.reduce((best, i) => (clim[i] > clim[best] ? i : best)), from: c[0], to: c[c.length - 1], share }));
 
   // A season-year is the 36 dekads from `start`, labelled by the calendar year it starts in.
   // It is only measured when the data reaches its last dekad; a partial total would shift 10 % and 90 %.
@@ -185,7 +192,7 @@ export function season(dekadRows, baseYears, bounds = {}) {
   const lengths = baseSeasons.map((y) => y.length);
 
   return {
-    status: 'ok', start, onset: fromStart(win.onset), peak, end: fromStart(win.end), twoSeasons, peaks,
+    status: 'ok', start, onset: fromStart(win.onset), peak, end: fromStart(win.end), twoSeasons, peaks, secondary,
     years: years.map(({ year, complete, off, length }) => {
       const flags = [];
       if (off && baseSeasons.length) {

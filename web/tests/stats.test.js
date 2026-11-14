@@ -184,3 +184,23 @@ test('dekadToDateLabel', () => {
   assert.equal(dekadToDateLabel(35), '21–31 Dec');
   assert.equal(dekadToDateLabel(11), '21–30 Apr');
 });
+
+test('season: a separate cluster with 10-25 % of the year is a secondary peak, not a second season', async () => {
+  const { season } = await import('../stats.js');
+  const rows = [];
+  for (let y = 2003; y <= 2010; y++) {
+    for (let i = 0; i < 36; i++) {
+      // main season dekads 30-32 (Nov): 80 % of the year; spring dekads 10-11 (Apr): 18 %; a trickle elsewhere
+      const v = [30, 31, 32].includes(i) ? 400 : [10, 11].includes(i) ? 135 : 1;
+      rows.push({ year: y, month: Math.floor(i / 3) + 1, dekad: (i % 3) + 1, value: v });
+    }
+  }
+  const s = season(rows, [2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010]);
+  assert.equal(s.twoSeasons, false);
+  assert.equal(s.secondary.length, 1);
+  assert.deepEqual([s.secondary[0].from, s.secondary[0].to], [10, 11]);
+  assert.ok(s.secondary[0].share > 0.17 && s.secondary[0].share < 0.19);
+  // a 5 % bump is not reported
+  const small = rows.map((r) => ([10, 11].includes((r.month - 1) * 3 + r.dekad - 1) ? { ...r, value: 35 } : r));
+  assert.equal(season(small, [2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010]).secondary.length, 0);
+});

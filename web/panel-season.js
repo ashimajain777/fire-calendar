@@ -18,13 +18,14 @@ const UNIT = { harm_n: 'hotspots', harm_fd: 'fire-days' };
 export function seasonSentence(s) {
   if (!s || s.status !== 'ok') return 'Not enough fires in this area to define a season.';
   const d = dekadToDateLabel;
-  if (!s.twoSeasons) return `Fire season here typically runs from ${d(s.onset)} to ${d(s.end)} and peaks around ${d(s.peak)} (±10 days).`;
+  const extra = (s.secondary || []).map((x) => ` Secondary peak: ${d(x.from)} to ${d(x.to)}, ${Math.round(x.share * 100)} % of the year.`).join('');
+  if (!s.twoSeasons) return `Fire season here typically runs from ${d(s.onset)} to ${d(s.end)} and peaks around ${d(s.peak)} (±10 days).${extra}`;
   const count = ['two', 'three', 'four'][s.peaks.length - 2] || String(s.peaks.length);
   return [
     `This area has ${count} fire seasons in a typical year.`,
     ...s.peaks.map((p, i) => `The ${ORDINALS[i] || `${i + 1}th`} peaks around ${d(p)} (±10 days).`),
     `Taken together, 80 % of a typical year's fires fall between ${d(s.onset)} and ${d(s.end)}.`,
-  ].join(' ');
+  ].join(' ') + extra;
 }
 
 // Median per dekad (36 values) over the base years; a base year with no rows counts as zero.

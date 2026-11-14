@@ -116,3 +116,8 @@ Each entry: what was decided, and why. Newest at the bottom.
 - Fix: archive years (2000 to the year before the current one) are published as one file per 5-degree tile (27 tiles, 31 MB in total); the browser picks the tiles an area overlaps from `meta.json` (`dekad_tiles`, `archive_end`). Later years stay one file per year (the daily job is unchanged).
 - The map no longer loads the latest month's points after every query. That pulled the whole current-year points file (34 MB) and delayed the next query; points now load when a month is selected.
 - Tried and dropped: a background warm-up of file metadata (no measurable gain: first query 14.9 s before and after).
+
+## D23. Secondary season peak (added after seeing Punjab's result)
+
+- Round 1 found Punjab + Haryana's April-May peak holds 17.8 % of the typical year, below the 25 % "two seasons" rule. Spring wheat-residue burning there is agronomically well known, so hiding it would mislead.
+- The 25 % rule is unchanged. A separate line now reports any other cluster holding 10 % to 25 % of the typical annual total as "Secondary peak: <dates>, <share> % of the year". The 10 % threshold was set to report such well-known minor seasons while leaving out small bumps; it was chosen after seeing Punjab's number and is stated here for that reason.
