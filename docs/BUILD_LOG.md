@@ -149,3 +149,15 @@ All numbers below are from `work/build_1.log`, `build_2.log`, `build_3.log`.
 | All India, later queries | 5.1 s | 7.4-9.3 s | 6.7 s |
 
   All-India later queries miss the 6 s target by 0.7 s; the A1 union step costs about 1.6 s there.
+- **A4 running month: done.** The current month's cell ranks only its complete 10-day periods against the same days in base years and says "so far". Live: "November 2026, 2,939 hotspots so far, 4th percentile for 1–10 Nov, provisional" (was "0th percentile"). Tests at the 5th, 10th, 14th, 30th.
+- **A5 secondary peak: done** (D23). First version reused the season clusters and found nothing on Punjab (spring bump = 1 dekad, 9.1 %); bumps are now measured trough to trough. Live Punjab: "Secondary peak: 21–30 Apr to 11–20 May, 19 % of the year". Jharia, Uttarakhand: none.
+- **A6 untested paths: done** (`tools-browser/paths.mjs`, live): retry, first 2 tile requests aborted → query succeeded (980 cells, no alert, 17.4 s incl. 3 s + 10 s back-off); drawn rectangle 6,760 cells = form 6,760; drawn 4-vertex polygon 448 = form 448.
+- **A7 readable errors: done.** "Couldn't load dekad_t1636.parquet: the file is not on the server. Try again in a minute." with the raw text in a collapsed Details.
+- **A2 live:** Jharia (12 cells) shows "Before 2018, values for small areas are approximate (±46 %)"; 57 of 64 converted months had their band widened. Punjab (980 cells): no note; 151 of 206 converted months widened.
+
+## Gate A: PASSED (17:29 IST)
+
+- pytest 117 passed; node 113 passed.
+- Cross-check (live vs Python), now with fire-days: **8/8 MATCH** on cells, harmonized, raw, CSV rows, fire-days, top month; 0 console errors. Fire-days: Punjab 360,780; Uttarakhand 106,901; Jharia 1,217; boxes 21 / 11,385 / 1,701 / 2,933 / 6,232.
+- axe 0 violations (main page before/after tabs, Methodology; light and dark). Keyboard path, 200 % zoom, 390 px: pass.
+- Timings: see A3 table.
