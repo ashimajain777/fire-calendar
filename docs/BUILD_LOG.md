@@ -84,3 +84,30 @@ All numbers below are from `work/build_1.log`, `build_2.log`, `build_3.log`.
 8. Stretch (comparison, timelapse, climate, exposure, alerts): not started; only if time remains.
 
 **Resume point if this stops:** `main` is the source of truth; all agent branches so far are merged. Continue from item 1 above.
+
+## Phase 3: app features merged; daily job works in CI; cross-check PASSED
+
+- **Merged into `main`:** Trend + Anomalies tabs and chart/table downloads (W3), Categories + Season tabs and mask layer (W4), with a fix to `stats.season` (first partial season-year and quiet areas were mis-flagged; now uses the data's start/end dates). Tests: 114 Python, **99 JS** passed.
+- **Mistake caught and fixed:** a merge conflict in `web/index.html` was committed and pushed (commit 9c2840c); fixed in the next commit before the next check.
+- **Daily workflow in GitHub Actions:** first run failed (`numpy` missing from requirements; `rasterio` imported at module level). The deploy step still ran, so the site kept its data. After the fix, run 43556763431 **succeeded**: 2,149,603 rows for 2026 (identical to the local build), invariants passed, and it uploaded `points_2026`, `dekad_2026`, `gaps`, `meta.json`, then redeployed.
+- **CDN bug found and fixed:** after a redeploy, a points file failed to load ("NetworkError"), because Pages' CDN can serve byte ranges from two versions of a file for up to 10 minutes. Data URLs now carry `?v=<meta.generated_utc>`, so each publish gets new URLs. After the fix: 0 console errors.
+- **Cross-check (browser on the live site vs Python on the published files), all MATCH** (cells, harmonized landscape total, raw count, CSV row count with all 8 categories, top month):
+
+| Area | Cells | Harmonized | Raw | CSV rows | Top month |
+|---|---|---|---|---|---|
+| Punjab + Haryana | 980 | 2,115,127 | 2,144,349 | 2,426,459 | Nov 2021 |
+| Uttarakhand | 795 | 360,808 | 428,942 | 476,396 | Apr 2016 |
+| Jharia | 12 | 1,934 | 2,763 | 320,116 | Apr 2024 |
+| Box 73-74 E, 35-36 N | 64 | 36 | 78 | 81 | Oct 2026 |
+| Box 83-84 E, 23-24 N | 100 | 33,932 | 45,355 | 64,360 | Mar 2021 |
+| Box 96-97 E, 28-29 N | 81 | 6,544 | 6,353 | 6,678 | Feb 2026 |
+| Box 72-73 E, 19-20 N | 37 | 5,808 | 8,380 | 15,014 | Mar 2013 |
+| Box 76-77 E, 14-15 N | 100 | 10,940 | 18,478 | 24,795 | Feb 2025 |
+
+  (The 5 boxes were drawn at random from covered cells with seed 1 by `pipeline/crosscheck.py`.)
+- **Timings from that run:** first page load 6.5 s; first area query (cold, Punjab) 25.1 s; later areas 0.6-1.4 s. The cold first query misses the plan's target and is listed as a known issue.
+- **Findings from the tabs (reported, not tuned):** Punjab + Haryana is *not* detected as two seasons: the Apr-May bump is 17.8 % of the typical annual total, below the 25 % rule, so the season sentence reads "11-20 Oct to 1-10 May, peak 1-10 Nov". Jharia: Industrial / static is 98.2 % of raw detections; 90 mask cells shown on the map.
+
+## Status now
+
+**Left, in order:** accessibility, dark mode, mobile and palette validation (Task 13); deliberate bad-key failure test of the daily job; Phase 5 fresh verification agent and `docs/BUILD_REPORT.md`. Stretch features (comparison, timelapse, climate, exposure, alerts) are **cut**: the usage-limit pauses used the time budget.

@@ -88,3 +88,15 @@ Each entry: what was decided, and why. Newest at the bottom.
 ## D17. NOAA-21 is stored for 2026 only
 
 - FIRMS has no per-country file for NOAA-21, so 2023-2025 NOAA-21 detections are not in the archive. 2026 NOAA-21 detections are fetched, stored and exported with weight 0. They don't affect the harmonized series.
+
+## D18. Data URLs are versioned per publish
+
+- Every data URL gets `?v=<meta.generated_utc>`. Without it, Pages' CDN (10-minute cache) served byte ranges from two versions of `points_2026.parquet` after a redeploy and the browser failed to read it. Seen on the live site, fixed, and rechecked with 0 errors.
+
+## D19. Playwright uses the installed Microsoft Edge
+
+- Headless checks run with `chromium.launch({channel: 'msedge'})` from `tools-browser/` (its `node_modules` is git-ignored). The built-in browser pane was hidden, which stalled in-page queries, so it is not used for timed checks.
+
+## D20. Stretch features are cut
+
+- Comparison mode, timelapse, climate context, exposure and alerts are not built. The build was paused five times by usage limits, so the remaining time goes to Core polish (Task 13) and the mandatory verification and report. The architecture notes for each are in PLAN §14.
