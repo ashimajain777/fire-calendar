@@ -106,3 +106,13 @@ test('overview rows reduce to the calendar, the dekad series and the sensor tota
   ]);
   assert.deepEqual(overviewSensors(rows, RANGE), { n_terra: 0, n_aqua: 6, n_snpp: 9, n_noaa20: 0, n_noaa21: 0 });
 });
+
+test('dekadFiles: only the tiles an area overlaps for archive years, one file per later year', async () => {
+  const { dekadFiles, tileOf } = await import('../queries.js');
+  const punjab = 1215 * 3600 + 2538; // cell at about 31.55 N, 73.85 E
+  const t = tileOf(punjab);
+  assert.equal(t, 24 * 72 + 50);
+  assert.deepEqual(dekadFiles([punjab], [2024, 2025, 2026], [t, t + 1, 999], 2025), [`dekad_t${t}.parquet`, 'dekad_2026.parquet']);
+  assert.deepEqual(dekadFiles([punjab], [2026], [t], 2025), ['dekad_2026.parquet']); // no archive year asked for
+  assert.deepEqual(dekadFiles([punjab], [2010], [999], 2025), []); // area outside every tile
+});

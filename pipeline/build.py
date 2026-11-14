@@ -186,11 +186,20 @@ def step_publish(region: str, upload: bool = True):
     (DATA / "dekad").mkdir(parents=True, exist_ok=True)
     release_files = sorted((WORK / "points").glob("points_*.parquet"))
     for p in sorted((WORK / "dekad").glob("dekad_*.parquet")):
-        year = int(p.stem.split("_")[1])
-        if year == current_year:
+        if int(p.stem.split("_")[1]) == current_year:
             release_files.append(p)     # current year is served from the release, never committed
-        else:
-            shutil.copy2(p, DATA / "dekad" / p.name)
+    # Archive years go out as 5-degree tiles (all years in one file per tile): the browser downloads whole files,
+    # so an area query should touch only the tiles it overlaps (DECISIONS D22).
+    for old in (DATA / "dekad").glob("dekad_*.parquet"):
+        old.unlink()
+    tile = "((cell_id // 3600) // 50) * 72 + (cell_id % 3600) // 50"
+    src = f"read_parquet('{(WORK / 'dekad').as_posix()}/dekad_*.parquet')"
+    tiles = [r[0] for r in c.execute(f"SELECT DISTINCT {tile} FROM {src} WHERE year < {current_year} ORDER BY 1").fetchall()]
+    for t_id in tiles:
+        c.execute(f"""COPY (SELECT * FROM {src} WHERE year < {current_year} AND {tile} = {t_id}
+                    ORDER BY cell_id, year, month, dekad, category)
+                    TO '{(DATA / 'dekad' / f'dekad_t{t_id}.parquet').as_posix()}' (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 50000)""")
+    print("dekad tiles:", len(tiles), "archive years to", current_year - 1)
     cov = c.execute(f"SELECT min(acq_date), max(acq_date) FROM '{g('points')}'").fetchone()
     sources = {sat: {"last_success_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
                      "coverage_end": str(end)}
@@ -198,7 +207,8 @@ def step_publish(region: str, upload: bool = True):
     sha = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
     publish.write_meta(DATA / "meta.json", status="ok", git_sha=sha, coverage_start=str(cov[0]),
                        coverage_end=str(cov[1]), landcover_source=LANDCOVER_SOURCE, boundary_source=BOUNDARY_SOURCE,
-                       chain=s.get("chain"), variant=s.get("variant"), sources=sources, last_error=None)
+                       chain=s.get("chain"), variant=s.get("variant"), sources=sources, last_error=None,
+                       dekad_tiles=tiles, archive_end=current_year - 1)
     print("meta coverage:", cov)
     if upload:
         repo = os.environ.get("GITHUB_REPO") or "ashimajain777/fire-calendar"

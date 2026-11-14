@@ -218,13 +218,23 @@ function years(range) {
   const b = ym(range.to).year;
   return coverageYears.filter((y) => y >= a && y <= b);
 }
-const dekadUrls = (db, range) => years(range).map((y) => db.url('dekad', `dekad_${y}.parquet`));
-const pointUrls = (db, range) => years(range).map((y) => db.url('points', `points_${y}.parquet`));
-// Reads every dekad file's footer in the background so the first area query does not pay for it.
-// cell_id < 0 matches no row group, so only metadata is fetched.
-export function warm(db) {
-  return db.query(`SELECT count(*) FROM ${fileList(dekadUrls(db))} WHERE cell_id < 0`).catch(() => null);
+let dekadTiles = null; // tile ids holding archive years (<= archiveEnd), from meta.json
+let archiveEnd = null;
+export const tileOf = (cellId) => Math.floor(Math.floor(cellId / 3600) / 50) * 72 + Math.floor((cellId % 3600) / 50);
+// Files an area query needs: the 5-degree tiles it overlaps (archive years), plus one file per later year.
+export function dekadFiles(ids, yrs, tiles, end) {
+  const out = [];
+  if (yrs.some((y) => y <= end)) {
+    const want = new Set(ids.map(tileOf));
+    for (const t of tiles) if (want.has(t)) out.push(`dekad_t${t}.parquet`);
+  }
+  for (const y of yrs) if (y > end) out.push(`dekad_${y}.parquet`);
+  return out;
 }
+const dekadUrls = (db, range, area) => (dekadTiles
+  ? dekadFiles(area.ids, years(range), dekadTiles, archiveEnd)
+  : years(range).map((y) => `dekad_${y}.parquet`)).map((f) => db.url('dekad', f));
+const pointUrls = (db, range) => years(range).map((y) => db.url('points', `points_${y}.parquet`));
 const fullRange = () => ({ from: `${coverageYears[0]}-01`, to: `${coverageYears[coverageYears.length - 1]}-12` });
 // Trim the zero-fill to the months the data covers, so months after the last acquisition are not shown as 0.
 let coverageMonths = null;
@@ -240,6 +250,7 @@ export async function meta(config) {
     const m = await res.json();
     coverageYears = yearsBetween(+m.coverage_start.slice(0, 4), +m.coverage_end.slice(0, 4));
     coverageMonths = { from: m.coverage_start.slice(0, 7), to: m.coverage_end.slice(0, 7) };
+    [dekadTiles, archiveEnd] = Array.isArray(m.dekad_tiles) ? [m.dekad_tiles, m.archive_end] : [null, null];
     return m;
   } catch {
     return null;
@@ -252,7 +263,7 @@ export async function coverage(db) {
 }
 
 export async function calendar(db, area, range, cats, metric) {
-  const urls = dekadUrls(db, range);
+  const urls = dekadUrls(db, range, area);
   if (!urls.length) return [];
   return fillMonths(await db.query(calendarSQL(urls, area.ranges, cats, metric, range)), clip(range));
 }
@@ -260,16 +271,16 @@ export async function calendar(db, area, range, cats, metric) {
 // Unconverted fire-days (distinct cell-days with an in-chain detection) for the selection: the cross-check's
 // independent comparison against distinct (cell, date) counted in the points files.
 export async function fireDaysBase(db, area, range, cats) {
-  const [r] = await db.query(`SELECT coalesce(sum(fd_base), 0)::BIGINT AS fd FROM ${cellDekadsSQL(dekadUrls(db, range), area.ranges, cats)} WHERE ${monthsSQL(range)}`);
+  const [r] = await db.query(`SELECT coalesce(sum(fd_base), 0)::BIGINT AS fd FROM ${cellDekadsSQL(dekadUrls(db, range, area), area.ranges, cats)} WHERE ${monthsSQL(range)}`);
   return r.fd;
 }
 
-export const dekadSeries = (db, area, cats, metric) => db.query(dekadSeriesSQL(dekadUrls(db), area.ranges, cats, metric));
-export const annual = (db, area, cats, metric) => db.query(annualSQL(dekadUrls(db), area.ranges, cats, metric));
+export const dekadSeries = (db, area, cats, metric) => db.query(dekadSeriesSQL(dekadUrls(db, null, area), area.ranges, cats, metric));
+export const annual = (db, area, cats, metric) => db.query(annualSQL(dekadUrls(db, null, area), area.ranges, cats, metric));
 
 // Everything the main page needs from one query: both calendars, the dekad series and raw counts by satellite.
 export async function overview(db, area, range, cats, metric) {
-  const rows = await db.query(overviewSQL(dekadUrls(db), area.ranges, cats));
+  const rows = await db.query(overviewSQL(dekadUrls(db, null, area), area.ranges, cats));
   return {
     calendars: { harm_n: overviewCalendar(rows, 'harm_n', clip(range)), harm_fd: overviewCalendar(rows, 'harm_fd', clip(range)) },
     dekadRows: overviewDekads(rows, metric),
@@ -278,13 +289,13 @@ export async function overview(db, area, range, cats, metric) {
 }
 
 export async function sensorTotals(db, area, range, cats) {
-  const urls = dekadUrls(db, range);
+  const urls = dekadUrls(db, range, area);
   return urls.length ? (await db.query(sensorTotalsSQL(urls, area.ranges, cats, range)))[0] : null;
 }
 
 export async function categoryCalendars(db, area, range, metric) {
   const all = CATEGORY_NAMES.map((_, i) => i);
-  const urls = dekadUrls(db, range);
+  const urls = dekadUrls(db, range, area);
   const rows = urls.length ? await db.query(calendarSQL(urls, area.ranges, all, metric, range, true)) : [];
   return new Map(all.map((c) => [c, fillMonths(rows.filter((r) => r.category === c), clip(range))]));
 }

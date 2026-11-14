@@ -1,6 +1,6 @@
 {
   "status": "ok",
-  "git_sha": "0e5de06e061f2007c7b1da3da8bb278e536f008f",
+  "git_sha": "b86b98ba23db08aa8c2a83bcfee6117be530c1d7",
   "coverage_start": "2000-11-01",
   "coverage_end": "2026-11-13",
   "landcover_source": "MODIS MCD12Q1 v061 LC_Type1 (IGBP), 2024, 500 m, via NASA AppEEARS",
@@ -12,27 +12,57 @@
   },
   "variant": "noregion",
   "sources": {
-    "Terra": {
-      "last_success_utc": "2026-11-14T11:24:49+00:00",
-      "coverage_end": "2026-11-13"
-    },
-    "Aqua": {
-      "last_success_utc": "2026-11-14T11:24:49+00:00",
-      "coverage_end": "2026-11-13"
-    },
-    "NOAA20": {
-      "last_success_utc": "2026-11-14T11:24:49+00:00",
-      "coverage_end": "2026-11-13"
-    },
     "SNPP": {
-      "last_success_utc": "2026-11-14T11:24:49+00:00",
+      "last_success_utc": "2026-11-14T11:37:43+00:00",
       "coverage_end": "2026-11-02"
     },
     "NOAA21": {
-      "last_success_utc": "2026-11-14T11:24:49+00:00",
+      "last_success_utc": "2026-11-14T11:37:43+00:00",
+      "coverage_end": "2026-11-13"
+    },
+    "Terra": {
+      "last_success_utc": "2026-11-14T11:37:43+00:00",
+      "coverage_end": "2026-11-13"
+    },
+    "Aqua": {
+      "last_success_utc": "2026-11-14T11:37:43+00:00",
+      "coverage_end": "2026-11-13"
+    },
+    "NOAA20": {
+      "last_success_utc": "2026-11-14T11:37:43+00:00",
       "coverage_end": "2026-11-13"
     }
   },
   "last_error": null,
-  "generated_utc": "2026-11-14T11:24:49+00:00"
+  "dekad_tiles": [
+    1419,
+    1422,
+    1490,
+    1491,
+    1492,
+    1494,
+    1562,
+    1563,
+    1564,
+    1565,
+    1633,
+    1634,
+    1635,
+    1636,
+    1637,
+    1638,
+    1705,
+    1706,
+    1707,
+    1708,
+    1709,
+    1710,
+    1711,
+    1778,
+    1779,
+    1780,
+    1851
+  ],
+  "archive_end": 2025,
+  "generated_utc": "2026-11-14T11:37:43+00:00"
 }

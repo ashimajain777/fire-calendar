@@ -364,9 +364,9 @@ async function run() {
     const years = new Set(calendarRows.map((r) => r.year)).size;
     $('live').textContent = `Calendar updated: ${years} ${years === 1 ? 'year' : 'years'}, ${area.ids.length} ${area.ids.length === 1 ? 'cell' : 'cells'}`;
     emit('fc:results', ctx);
-    const latest = [...calendarRows].reverse().find((r) => r.value > 0 || r.raw > 0 || r.lowconf > 0);
-    if (latest) showMonthPoints(latest);
-    else { map.showPoints([]).catch(() => {}); $('map-caption').textContent = ''; }
+    // points load only when a month is chosen: a year's points file is downloaded whole (up to ~34 MB)
+    map.showPoints([]).catch(() => {});
+    $('map-caption').textContent = 'Select a month in the calendar to show its hotspots on the map.';
   } catch (e) {
     if (my !== state.seq) return;
     $('results').removeAttribute('aria-busy');
@@ -456,7 +456,6 @@ async function start() {
     state.config.version = state.meta.generated_utc;
     state.db = await initDB(state.config);
     [state.coverage, state.gaps] = await Promise.all([q.coverage(state.db), q.gaps(state.db)]);
-    q.warm(state.db); // not awaited: the page is usable while file metadata loads
     let [s, n, w, e] = [Infinity, -Infinity, Infinity, -Infinity];
     for (const id of state.coverage) {
       const [lat, lon] = cellCenter(id);
