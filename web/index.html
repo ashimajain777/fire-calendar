@@ -1,4 +1,181 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Burning Activity Calendar</title></head>
-<body><h1>Burning Activity Calendar</h1><p>Build in progress.</p></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Burning Activity Calendar</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@6.16.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* Page-specific layout; tokens and components are in styles.css. */
+  .app-header h1 { margin: 0; font-size: 20px; }
+  .app-header p { margin: 0; }
+  .app-header .spacer { flex: 1; }
+  .rail h2, .main h2 { margin: 0 0 8px; font-size: 16px; }
+  .rail fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+  .rail legend { padding: 0; margin-bottom: 8px; font-size: 16px; font-weight: 700; color: var(--ink); }
+  .rail form, .rail .stack { display: flex; flex-direction: column; gap: 8px; }
+  .rail form { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .rail .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .rail .btn { width: 100%; }
+  .hint { margin: 0; font-size: 14px; color: var(--ink-2); }
+  #map { position: relative; height: 420px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .map-legend { position: absolute; left: 8px; bottom: 8px; z-index: 2; margin: 0; padding: 6px 10px; background: #fcfcfb; color: #1d2433; border: 1px solid #c3c9d3; border-radius: var(--radius); }
+  .map-legend .legend-title { color: #1d2433; }
+  .map-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 1px solid #fcfcfb; box-shadow: 0 0 0 1px #c3c9d3; }
+  .map-note { position: absolute; left: 8px; top: 8px; z-index: 2; margin: 0; max-width: calc(100% - 64px); }
+  .maplibregl-map.mouse-add .maplibregl-canvas-container { cursor: crosshair; }
+  #status { display: flex; flex-direction: column; gap: 8px; }
+  #status:empty { display: none; }
+  #results { display: flex; flex-direction: column; gap: var(--gutter); min-width: 0; }
+  #results[hidden] { display: none; }
+  .results-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gutter); }
+  .results-grid > * { min-width: 0; }
+  .side { display: flex; flex-direction: column; gap: var(--gutter); }
+  .side ol { margin: 0; padding-left: 24px; font-variant-numeric: tabular-nums; }
+  .side h3 { margin: 12px 0 4px; font-size: 14px; color: var(--ink-2); }
+  .kpi-note { font-size: 14px; color: var(--ink-2); }
+  .mtd-value { margin: 0; font-size: 20px; font-weight: 700; }
+  .card p { margin: 0 0 6px; }
+  .downloads { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  @media (min-width: 1200px) { .results-grid { grid-template-columns: minmax(0, 1fr) 300px; } }
+  @media (max-width: 767.98px) { #map-section { order: 3; } #map { height: 320px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <h1>Burning Activity Calendar</h1>
+    <p id="area-summary">No area selected</p>
+    <span class="spacer"></span>
+    <span id="freshness" class="badge" tabindex="0">Checking data status…</span>
+    <a href="methodology.html">Methodology</a>
+  </header>
+
+  <aside class="rail" aria-label="Area and filters">
+    <fieldset>
+      <legend>Area</legend>
+      <div class="stack">
+        <button type="button" class="btn" id="draw-polygon">Draw polygon on map</button>
+        <button type="button" class="btn" id="draw-rectangle">Draw rectangle on map</button>
+        <p class="hint" id="draw-hint">Polygon: click each corner, double-click to finish. Rectangle: click two opposite corners. Or type an area below.</p>
+      </div>
+      <form id="point-form" novalidate aria-label="Area from a point and radius">
+        <div class="pair">
+          <label class="field">Latitude <input id="pt-lat" type="number" step="any" inputmode="decimal" aria-describedby="point-error"></label>
+          <label class="field">Longitude <input id="pt-lon" type="number" step="any" inputmode="decimal" aria-describedby="point-error"></label>
+        </div>
+        <label class="field">Radius (km) <input id="pt-km" type="number" step="any" min="0" inputmode="decimal" value="25" aria-describedby="point-error"></label>
+        <p class="notice notice--error" id="point-error" role="alert" hidden></p>
+        <button type="submit" class="btn btn--primary">Use point and radius</button>
+      </form>
+      <form id="bbox-form" novalidate aria-label="Area from a bounding box">
+        <div class="pair">
+          <label class="field">West (longitude) <input id="bb-w" type="number" step="any" inputmode="decimal" aria-describedby="bbox-error"></label>
+          <label class="field">South (latitude) <input id="bb-s" type="number" step="any" inputmode="decimal" aria-describedby="bbox-error"></label>
+          <label class="field">East (longitude) <input id="bb-e" type="number" step="any" inputmode="decimal" aria-describedby="bbox-error"></label>
+          <label class="field">North (latitude) <input id="bb-n" type="number" step="any" inputmode="decimal" aria-describedby="bbox-error"></label>
+        </div>
+        <p class="notice notice--error" id="bbox-error" role="alert" hidden></p>
+        <button type="submit" class="btn btn--primary">Use bounding box</button>
+      </form>
+    </fieldset>
+
+    <fieldset>
+      <legend>Dates</legend>
+      <div class="stack">
+        <label class="field">From month <input id="date-from" type="month"></label>
+        <label class="field">To month <input id="date-to" type="month"></label>
+        <p class="notice notice--error" id="date-error" role="alert" hidden></p>
+        <button type="button" class="btn" data-preset="full">Full record</button>
+        <button type="button" class="btn" data-preset="last12">Last 12 months of data</button>
+        <button type="button" class="btn" data-preset="lastyear">Last calendar year</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Categories</legend>
+      <div id="categories"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Measure</legend>
+      <div class="stack">
+        <div class="toggle-group" id="metric-toggle" role="group" aria-label="Measure">
+          <button type="button" data-value="harm_n" aria-pressed="true">Hotspots</button>
+          <button type="button" data-value="harm_fd" aria-pressed="false">Fire-days</button>
+        </div>
+        <p class="hint"><strong>Hotspots</strong> counts every satellite fire detection, adjusted so all years are comparable to NOAA-20.</p>
+        <p class="hint"><strong>Fire-days</strong> counts the days on which each 11 km grid cell had at least one detection.</p>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Calendar colours</legend>
+      <div class="stack">
+        <div class="toggle-group" id="mode-toggle" role="group" aria-label="Calendar colours">
+          <button type="button" data-value="counts" aria-pressed="true">Counts</button>
+          <button type="button" data-value="anomaly" aria-pressed="false">Anomaly</button>
+        </div>
+        <p class="hint">Anomaly colours each month by how it ranks against the same month in other years.</p>
+      </div>
+    </fieldset>
+  </aside>
+
+  <main class="main">
+    <section id="map-section" aria-label="Map">
+      <div id="map"></div>
+      <p class="hint" id="map-caption"></p>
+    </section>
+
+    <div id="status"></div>
+    <p id="live" class="visually-hidden" aria-live="polite"></p>
+
+    <section id="results" hidden>
+      <div class="kpi-row" id="kpis"></div>
+      <div class="results-grid">
+        <section aria-labelledby="calendar-title">
+          <h2 id="calendar-title">Calendar</h2>
+          <div id="calendar"></div>
+          <p class="hint">Select a month to show its hotspots on the map.</p>
+        </section>
+        <div class="side">
+          <section class="card" aria-labelledby="mtd-title">
+            <h2 id="mtd-title">Latest month vs typical</h2>
+            <div id="mtd"></div>
+          </section>
+          <section class="card" aria-labelledby="rank-title">
+            <h2 id="rank-title">Busiest months and years</h2>
+            <div id="rankings"></div>
+          </section>
+        </div>
+      </div>
+
+      <div>
+        <div class="tabs" role="tablist" aria-label="More views">
+          <button class="tab" role="tab" id="tab-trend" aria-controls="panel-trend" aria-selected="true">Trend</button>
+          <button class="tab" role="tab" id="tab-anomalies" aria-controls="panel-anomalies" aria-selected="false" tabindex="-1">Anomalies</button>
+          <button class="tab" role="tab" id="tab-season" aria-controls="panel-season" aria-selected="false" tabindex="-1">Season</button>
+          <button class="tab" role="tab" id="tab-categories" aria-controls="panel-categories" aria-selected="false" tabindex="-1">Categories</button>
+          <button class="tab" role="tab" id="tab-download" aria-controls="panel-download" aria-selected="false" tabindex="-1">Download</button>
+        </div>
+        <div class="tabpanel" role="tabpanel" id="panel-trend" aria-labelledby="tab-trend" tabindex="0"></div>
+        <div class="tabpanel" role="tabpanel" id="panel-anomalies" aria-labelledby="tab-anomalies" tabindex="0" hidden></div>
+        <div class="tabpanel" role="tabpanel" id="panel-season" aria-labelledby="tab-season" tabindex="0" hidden></div>
+        <div class="tabpanel" role="tabpanel" id="panel-categories" aria-labelledby="tab-categories" tabindex="0" hidden></div>
+        <div class="tabpanel" role="tabpanel" id="panel-download" aria-labelledby="tab-download" tabindex="0" hidden>
+          <div class="downloads">
+            <button type="button" class="btn" id="dl-points">Download hotspots CSV</button>
+            <button type="button" class="btn" id="dl-monthly">Download monthly table CSV</button>
+          </div>
+          <p class="hint">Hotspots CSV: one row per satellite detection in the selected area, dates and categories. Monthly table CSV: the calendar values with range, percentile and z-score.</p>
+          <div id="dl-status" role="status"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

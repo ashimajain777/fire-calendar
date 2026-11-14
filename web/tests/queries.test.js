@@ -1,0 +1,90 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  calendarSQL, dekadSeriesSQL, annualSQL, sensorTotalsSQL, pointsSQL, pointsCSVSQL, pointsCountSQL,
+  fillMonths, monthlyTable, yearsBetween, baseYearsFor, CATEGORY_NAMES,
+} from '../queries.js';
+
+const URLS = ['u/dekad_2001.parquet', 'u/dekad_2002.parquet'];
+const RANGES = [[5, 7], [10, 10]];
+const RANGE = { from: '2001-03', to: '2002-02' };
+
+test('calendarSQL has the cell predicate, the category list, the month window and only the given files', () => {
+  const sql = calendarSQL(URLS, RANGES, [0, 3], 'harm_fd', RANGE);
+  assert.match(sql, /\(cell_id BETWEEN 5 AND 7 OR cell_id = 10\)/);
+  assert.match(sql, /category IN \(0, 3\)/);
+  assert.ok(sql.includes("year::INT * 100 + month BETWEEN 200103 AND 200202"));
+  assert.match(sql, /read_parquet\(\['u\/dekad_2001\.parquet', 'u\/dekad_2002\.parquet'\]\)/);
+  assert.match(sql, /sum\(harm_fd_lo\)/);
+  assert.match(sql, /sum\(harm_fd_hi\)/);
+  assert.match(sql, /processing = 1/);
+  assert.match(sql, /n_terra \+ n_aqua \+ n_snpp \+ n_noaa20 \+ n_noaa21/);
+  assert.doesNotMatch(sql, /harm_n\b/);
+});
+
+test('no builder contains a data location of its own', () => {
+  const all = [
+    calendarSQL(URLS, RANGES, [0], 'harm_n', RANGE), dekadSeriesSQL(URLS, RANGES, [0], 'harm_n'),
+    annualSQL(URLS, RANGES, [0], 'harm_n'), sensorTotalsSQL(URLS, RANGES, [0], RANGE),
+    pointsSQL(URLS, RANGES, [0], RANGE, 10), pointsCSVSQL(URLS, RANGES, [0], RANGE), pointsCountSQL(URLS, RANGES, [0], RANGE),
+  ];
+  for (const sql of all) {
+    const literals = [...sql.matchAll(/'([^']*\.parquet)'/g)].map((m) => m[1]);
+    assert.deepEqual(literals, URLS);
+    assert.doesNotMatch(sql, /https?:|\.\/data|data\//);
+    assert.match(sql, /\(cell_id BETWEEN 5 AND 7 OR cell_id = 10\)/);
+  }
+});
+
+test('empty selections match nothing instead of producing invalid SQL', () => {
+  const sql = calendarSQL(URLS, [], [], 'harm_n', RANGE);
+  assert.match(sql, /WHERE FALSE AND FALSE AND/);
+});
+
+test('bad inputs are rejected, not interpolated', () => {
+  assert.throws(() => calendarSQL(URLS, RANGES, [0], 'harm_n; DROP', RANGE), TypeError);
+  assert.throws(() => calendarSQL(URLS, RANGES, ['0 OR 1=1'], 'harm_n', RANGE), TypeError);
+  assert.throws(() => calendarSQL(URLS, RANGES, [0], 'harm_n', { from: '2001-13', to: '2002-01' }), TypeError);
+  assert.throws(() => pointsSQL(URLS, RANGES, [0], RANGE, '5; --'), TypeError);
+});
+
+test('points builders filter by date, cells and category; the CSV adds a readable category', () => {
+  const sql = pointsSQL(URLS, RANGES, [1, 5], { from: '2024-02', to: '2024-02' }, 20001);
+  assert.match(sql, /acq_date BETWEEN DATE '2024-02-01' AND DATE '2024-02-29'/);
+  assert.match(sql, /category IN \(1, 5\)/);
+  assert.match(sql, /LIMIT 20001$/);
+  const csv = pointsCSVSQL(URLS, RANGES, [1], RANGE);
+  for (const col of ['lat', 'lon', 'acq_date', 'acq_time', 'sensor', 'satellite', 'confidence_raw', 'conf_class', 'frp', 'daynight',
+    'brightness', 'firms_type', 'processing', 'version', 'cell_id', 'cell001_id', 'region_id', 'category',
+    'in_baseline_chain', 'harm_weight', 'harm_weight_lo', 'harm_weight_hi']) assert.match(csv, new RegExp(`\\b${col}\\b`));
+  assert.match(csv, /AS category_name/);
+  for (const name of CATEGORY_NAMES) assert.ok(csv.includes(`'${name}'`));
+  assert.doesNotMatch(csv, /LIMIT/);
+});
+
+test('fillMonths gives every month in range, zero where there is no row', () => {
+  const row = { year: 2001, month: 4, value: 7, lo: 6, hi: 8, harm_from: 2, provisional: false, raw: 9, lowconf: 1 };
+  const out = fillMonths([row], RANGE);
+  assert.equal(out.length, 12);
+  assert.deepEqual(out.map((r) => r.month), [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2]);
+  assert.equal(out[1], row);
+  assert.deepEqual(out[0], { year: 2001, month: 3, value: 0, lo: 0, hi: 0, harm_from: null, provisional: false, raw: 0, lowconf: 0 });
+  assert.equal(out[11].year, 2002);
+  assert.equal(out.reduce((s, r) => s + r.value, 0), 7);
+});
+
+test('monthlyTable keeps the months in range and takes percentile and z from the base years', () => {
+  const base = [2003, 2004, 2005, 2006, 2007];
+  const rows = fillMonths(base.map((y, i) => ({ year: y, month: 1, value: i + 1, lo: i, hi: i + 2, harm_from: 2, provisional: false, raw: 0, lowconf: 0 })),
+    { from: '2003-01', to: '2007-12' });
+  const out = monthlyTable(rows, { from: '2006-01', to: '2006-02' }, base, []);
+  assert.equal(out.length, 2);
+  assert.deepEqual({ ...out[0] }, { year: 2006, month: 1, value: 4, lo: 3, hi: 5, percentile: 70, z_score: 0.63, source: 'converted from Aqua MODIS', provisional: false });
+  assert.equal(out[1].value, 0);
+  assert.equal(out[1].z_score, null); // sd = 0
+});
+
+test('year helpers', () => {
+  assert.deepEqual(yearsBetween(2000, 2003), [2000, 2001, 2002, 2003]);
+  assert.deepEqual(baseYearsFor({ coverage_start: '2000-11-01', coverage_end: '2005-03-02' }), [2003, 2004, 2005]);
+});
