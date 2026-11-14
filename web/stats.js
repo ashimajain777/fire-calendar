@@ -127,7 +127,15 @@ function clusters(clim, peakValue) {
   return out;
 }
 
-export function season(dekadRows, baseYears) {
+// year * 36 + dekad index of the dekad containing a UTC date.
+function dekadPos(date) {
+  return date.getUTCFullYear() * 36 + date.getUTCMonth() * 3 + Math.min(2, Math.floor((date.getUTCDate() - 1) / 10));
+}
+const DAY_MS = 86400000;
+
+// bounds (optional): {firstDataDate, lastDataDate} as Date or 'YYYY-MM-DD'. With them, a season-year is complete
+// only when the data covers all of its 36 dekads; without them, completeness is judged from the newest row.
+export function season(dekadRows, baseYears, bounds = {}) {
   const none = { status: 'insufficient', start: null, onset: null, peak: null, end: null, twoSeasons: false, peaks: [], years: [] };
   const zeros = new Array(36).fill(0);
   const byYear = new Map();
@@ -138,6 +146,12 @@ export function season(dekadRows, baseYears) {
     byYear.get(r.year)[i] += r.value;
     lastPos = Math.max(lastPos, r.year * 36 + i);
   }
+  // First and last dekads the data covers in full.
+  const first = bounds.firstDataDate ? new Date(bounds.firstDataDate) : null;
+  const last = bounds.lastDataDate ? new Date(bounds.lastDataDate) : null;
+  const firstPos = first ? dekadPos(new Date(first.getTime() - DAY_MS)) + 1 : -Infinity;
+  if (last) lastPos = dekadPos(new Date(last.getTime() + DAY_MS)) - 1;
+  if (first && last) for (let y = first.getUTCFullYear(); y <= last.getUTCFullYear(); y++) if (!byYear.has(y)) byYear.set(y, zeros);
   if (!baseYears.length) return none;
   const base = baseYears.map((y) => byYear.get(y) ?? zeros);
   if (sum(base.map(sum)) / base.length < 30) return none;
@@ -160,7 +174,7 @@ export function season(dekadRows, baseYears) {
   // A season-year is the 36 dekads from `start`, labelled by the calendar year it starts in.
   // It is only measured when the data reaches its last dekad; a partial total would shift 10 % and 90 %.
   const years = [...byYear.keys()].sort((a, b) => a - b).map((year) => {
-    const complete = year * 36 + start + 35 <= lastPos;
+    const complete = year * 36 + start >= firstPos && year * 36 + start + 35 <= lastPos;
     const series = zeros.map((_, k) => (byYear.get(year + (start + k >= 36 ? 1 : 0)) ?? zeros)[fromStart(k)]);
     const w = complete ? window1090(series) : null;
     return { year, complete, off: w, length: w ? w.end - w.onset + 1 : null };

@@ -7,3 +7,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .worktrees/
+.tools/
+.site/
+tools-browser/node_modules/
