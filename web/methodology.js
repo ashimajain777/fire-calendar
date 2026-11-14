@@ -297,7 +297,8 @@ function tableToggle(tableNode) {
 }
 
 const paragraphs = (texts) => texts.map((t) => h('p', {}, t));
-const errorNotice = (e) => h('div', { class: 'notice notice--error', role: 'alert' }, e && e.message ? e.message : String(e));
+const errorNotice = (e) => h('div', { class: 'notice notice--error', role: 'alert' }, e && e.message ? e.message : String(e),
+  e && e.details ? h('details', {}, h('summary', {}, 'Details'), h('pre', { class: 'error-details' }, e.details)) : null);
 
 async function fetchJSON(url) {
   let res;

@@ -44,6 +44,19 @@ function toRows(table) {
   return { columns, rows };
 }
 
+// A readable message for a failed data read; the raw engine text stays on `details` for a collapsible block.
+export function friendlyError(files, e) {
+  const raw = String(e && e.message ? e.message : e);
+  const names = files.map((f) => f.split('/').pop());
+  const what = !names.length ? 'the data' : names.length === 1 ? names[0] : `${names[0]} and ${names.length - 1} more ${names.length === 2 ? 'file' : 'files'}`;
+  const reason = /No files found|404|does not exist/i.test(raw) ? 'the file is not on the server'
+    : /NetworkError|Failed to fetch|Failed to load|Failed to open/i.test(raw) ? 'the network request failed'
+      : 'the data could not be read';
+  const err = new Error(`Couldn't load ${what}: ${reason}. Try again in a minute.`, { cause: e });
+  err.details = raw;
+  return err;
+}
+
 // Retries only network-level failures (not SQL or missing-file errors), after 3 s and then 10 s.
 export function isTransient(e) {
   return /NetworkError|Failed to fetch|Failed to load/i.test(String(e && e.message ? e.message : e)) && !/No files found|HTTP 404/i.test(String(e && e.message ? e.message : e));
@@ -77,8 +90,8 @@ export async function initDB(config) {
       // A file read can fail for a short time right after a deploy while the CDN holds mixed versions of a file.
       return toRows(await withRetry(() => con.query(sql)));
     } catch (e) {
-      const files = [...new Set([...sql.matchAll(/'([^']+\.(?:parquet|json|csv))'/g)].map((m) => m[1]))];
-      throw new Error(`Couldn't load ${files.length ? files.join(', ') : 'query result'}: ${e && e.message ? e.message : e}`, { cause: e });
+      const files = [...new Set([...sql.matchAll(/'([^']+\.(?:parquet|json|csv))(?:\?[^']*)?'/g)].map((m) => m[1]))];
+      throw friendlyError(files, e);
     }
   }
 

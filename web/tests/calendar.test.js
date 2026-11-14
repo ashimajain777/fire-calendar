@@ -144,3 +144,13 @@ test('monthToDate on the 10th counts the first period as complete', async () => 
   assert.equal(r.mode, 'mtd');
   assert.deepEqual(r.dekads, [1]);
 });
+
+test('db.friendlyError names the file, gives a short reason and keeps the raw text', async () => {
+  const { friendlyError } = await import('../db.js');
+  const e = friendlyError(['https://x/data/dekad/dekad_t1636.parquet'], new Error('IO Error: No files found that match the pattern "https://x/data/dekad/dekad_t1636.parquet"'));
+  assert.equal(e.message, "Couldn't load dekad_t1636.parquet: the file is not on the server. Try again in a minute.");
+  assert.match(e.details, /IO Error: No files found/);
+  const n = friendlyError(['a/p1.parquet', 'a/p2.parquet', 'a/p3.parquet'], new Error("NetworkError: Failed to execute 'send'"));
+  assert.equal(n.message, "Couldn't load p1.parquet and 2 more files: the network request failed. Try again in a minute.");
+  assert.equal(friendlyError([], new Error('Binder Error')).message, "Couldn't load the data: the data could not be read. Try again in a minute.");
+});

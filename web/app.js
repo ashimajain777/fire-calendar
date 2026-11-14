@@ -43,10 +43,15 @@ function setStatus(...notices) {
   $('status').replaceChildren(...notices.filter(Boolean).map(([text, error]) => h('p', { class: `notice${error ? ' notice--error' : ''}`, role: error ? 'alert' : null }, text)));
 }
 
-function fail(message) {
+// Shows a readable message; the raw engine text (if any) sits in a collapsed "Details" block.
+function fail(e) {
+  const message = errorText(e);
   state.ctx = null;
   $('results').hidden = true;
   setStatus([message, true]);
+  if (e && e.details) {
+    $('status').lastChild.append(h('details', {}, h('summary', {}, 'Details'), h('pre', { class: 'error-details' }, e.details)));
+  }
   emit('fc:error', { message });
 }
 
@@ -371,7 +376,7 @@ async function run() {
   } catch (e) {
     if (my !== state.seq) return;
     $('results').removeAttribute('aria-busy');
-    fail(errorText(e));
+    fail(e);
   }
 }
 
@@ -467,7 +472,7 @@ async function start() {
     wireAreaForms();
     run();
   } catch (e) {
-    fail(errorText(e));
+    fail(e);
   }
 }
 

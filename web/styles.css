@@ -449,3 +449,6 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--action);
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* raw error text, collapsed under a readable message */
+.error-details { white-space: pre-wrap; word-break: break-word; font-size: 0.8125rem; max-height: 12rem; overflow: auto; }
