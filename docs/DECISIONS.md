@@ -56,3 +56,12 @@ Each entry: what was decided, and why. Newest at the bottom.
 
 - Real data: S-NPP starts 20 Jan 2012 and NOAA-20 starts 1 Apr 2018. Including those years would put source detections with no possible target detections into the ratio of totals and bias the January-March ratios low.
 - Fit years are now Aqua->S-NPP 2013-2021 and S-NPP->NOAA-20 2019-2025 (Terra->Aqua stays 2003-2011). This was decided from the satellites' start dates before any ratio was looked at.
+
+## D12. `.env` found in `docs/` (after Phase 2): what changed and what did not
+
+- The credentials file was in `docs/.env`, not the project root. It is git-ignored and was never committed (checked `git log --all --name-only`). It is now copied to the root `.env` (also ignored).
+- **2026 data:** the FIRMS key works. January 2026 onward is fetched from the Area API (standard processing where available, near-real-time after), and the whole pipeline is rebuilt. This supersedes D4.
+- **Land cover:** the AppEEARS task was done, so land cover is now MODIS MCD12Q1 v061 LC_Type1 (2024), as the plan intended. This supersedes D5 and D9. The ESA CCI files are kept in `work/aux/cci_*.tif` as a fallback.
+- **Points host stays GitHub Release -> Pages (D3).** It is already deployed and tested with real range reads, it is same-origin, and switching to Hugging Face now would add cross-origin risk for no gain. Moving later is one config line.
+- `FIRMS_MAP_KEY` is set as a GitHub Actions secret with `gh secret set`.
+- Because classification and ratios depend on land cover, every Gate 2 number is recomputed; the earlier Gate 2 entry in BUILD_LOG is kept as history and marked superseded.

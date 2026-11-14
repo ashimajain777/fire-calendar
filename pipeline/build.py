@@ -29,7 +29,7 @@ API_SOURCES = {  # FIRMS Area API source -> (ingest source, processing)
     "VIIRS_NOAA20_SP": ("viirs-jpss1", "SP"), "VIIRS_NOAA20_NRT": ("viirs-jpss1", "NRT"),
     "VIIRS_NOAA21_SP": ("viirs-jpss2", "SP"), "VIIRS_NOAA21_NRT": ("viirs-jpss2", "NRT"),
 }
-LANDCOVER_SOURCE = "ESA CCI / C3S Land Cover 2020 v2.1.1 (300 m), recoded to IGBP classes"
+LANDCOVER_SOURCE = "MODIS MCD12Q1 v061 LC_Type1 (IGBP), 2024, 500 m, via NASA AppEEARS"
 BOUNDARY_SOURCE = "Natural Earth 1:10m admin-0 countries, India point-of-view (ne_10m_admin_0_countries_ind)"
 
 
@@ -70,6 +70,31 @@ def step_ingest(region: str):
     by_sat = con().execute(
         f"SELECT year(acq_date) y, satellite, count(*) n FROM '{g('stage')}' GROUP BY ALL ORDER BY ALL").fetchall()
     state(ingest=stats, ingest_total=tot, rows_by_year_satellite=by_sat)
+
+
+def step_ingest_api(region: str):
+    """Fetch the current year from the FIRMS Area API: SP where available, NRT after the SP end date."""
+    import csv
+    import io
+    import requests
+    from pipeline import ingest
+    key = os.environ["FIRMS_MAP_KEY"]
+    r = requests.get(f"https://firms.modaps.eosdis.nasa.gov/api/data_availability/csv/{key}/ALL", timeout=60)
+    r.raise_for_status()
+    avail = {row["data_id"]: (dt.date.fromisoformat(row["min_date"]), dt.date.fromisoformat(row["max_date"]))
+             for row in csv.DictReader(io.StringIO(r.text))}
+    last_csv_year = max(int(p.stem.split("_")[1]) for p in (WORK / "csv" / "modis").glob("*.csv"))
+    start = dt.date(last_csv_year + 1, 1, 1)
+    bbox = settings.REGIONS[region]["bbox"]
+    for name in API_SOURCES:
+        lo, hi = avail[name]
+        s = max(start, lo)
+        if s > hi:
+            print("  ", name, "nothing to fetch")
+            continue
+        files = ingest.fetch_area_api(name, bbox, s, hi, key, WORK / "api")
+        print("  ", name, s, "->", hi, len(files), "files")
+    state(api_availability={k: [str(a), str(b)] for k, (a, b) in avail.items() if k in API_SOURCES})
 
 
 def step_landcover(region: str):
@@ -182,14 +207,14 @@ def step_publish(region: str, upload: bool = True):
         print("uploaded", len(release_files), "files to release 'data'")
 
 
-STEPS = {"ingest": step_ingest, "landcover": step_landcover, "classify": step_classify,
+STEPS = {"ingest_api": step_ingest_api, "ingest": step_ingest, "landcover": step_landcover, "classify": step_classify,
          "harmonize": step_harmonize, "aggregate": step_aggregate, "validate": step_validate,
          "publish": step_publish}
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--region", default="india")
-    ap.add_argument("--steps", default=",".join(STEPS))
+    ap.add_argument("--steps", default=",".join(s for s in STEPS if s != "ingest_api"))
     a = ap.parse_args()
     settings.load_env()
     for name in a.steps.split(","):

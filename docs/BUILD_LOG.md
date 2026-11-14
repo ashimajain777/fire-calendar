@@ -29,7 +29,7 @@ Times are local (IST). Numbers are copied from command output.
 - Contract fixes: JS test command uses the glob form (Node 25 rejects the directory form); fit years changed (DECISIONS D11).
 - Open: the merged-code review is run alongside Phase 3 to save time.
 
-## Gate 2: PASSED (real India data, 2000-11-01 to 2025-12-31)
+## Gate 2 (first run, SUPERSEDED by the rerun below): passed on data 2000-11-01 to 2025-12-31 with ESA CCI land cover
 
 All numbers below are from `work/build_1.log`, `build_2.log`, `build_3.log`.
 
