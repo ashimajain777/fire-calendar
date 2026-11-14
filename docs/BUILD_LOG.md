@@ -122,3 +122,15 @@ All numbers below are from `work/build_1.log`, `build_2.log`, `build_3.log`.
 - Not run (need a human): NVDA/VoiceOver screen-reader pass, a physical phone.
 
 **Next:** Phase 5, independent verification agent, then `docs/BUILD_REPORT.md`.
+
+## Phase 5: verification and report
+
+- **Independent verifier** (fresh agent, clean checkout `dfcf97f`): tests 114 + 99 passed; invariants passed on two reruns; cross-check 8/8 MATCH; CSV = calendar (20,708 = 19,807 + 901); freshness badge correct; error state names the file and shows no numbers; palette and axe pass; no hardcoded data or area-specific code. **Two failures:** all-India warm query about 40 s (target 6 s), and reruns not repeatable (dedup kept an arbitrary row among duplicates with different FRP).
+- **Fixes:**
+  - Deterministic dedup tie-break (test red-green: failed 3/3 on old code). After it, dekad tables are byte-identical across reruns and points contents are identical.
+  - Id-list filter for large areas: all India warm went from 45.9-49.9 s to 5.1 s on the 3rd and 4th query.
+  - Retry of network-level file reads after deploys. The earlier URL-versioning explanation was wrong (the CDN ignores query strings); DECISIONS D18 is corrected.
+- **Final checks** on `c9460da`: pytest 115 passed; node 101 passed; cross-check right after the last deploy 8/8 MATCH, 0 console errors.
+- Still open: first query after page load 8-15 s; screen-reader and phone checks need a human; stretch features not built.
+
+**Verdict: Ready with issues.** Report: `docs/BUILD_REPORT.md`
