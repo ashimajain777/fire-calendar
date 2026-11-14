@@ -62,7 +62,7 @@ export const syncKey = (rowHead, col, firstYear) => (rowHead === 'Typical' ? `T-
 
 const fmt = (v) => (v < 10 && !Number.isInteger(v) ? v.toLocaleString('en-US', { maximumFractionDigits: 1 }) : Math.round(v).toLocaleString('en-US'));
 const signed = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v));
-const pctText = (p) => (p === null ? '—' : `${p > 0 ? '+' : p < 0 ? '−' : ''}${Math.abs(p).toFixed(1)} %`);
+const pctText = (p) => (p === null ? '—' : `${p > 0 ? '+' : p < 0 ? '−' : ''}${Math.abs(p).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`);
 
 // ---------- DOM ----------
 
@@ -83,12 +83,13 @@ function styles() {
   document.head.append(h('style', { id: 'fc-compare-styles' }, `
 .cmp-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 0 0 12px; }
 .cmp-form fieldset { margin: 0; padding: 0; border: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.cmp-form fieldset[hidden] { display: none; }
 .cmp-form .field input { width: 9em; }
 .cmp-sides { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gutter); }
 .cmp-sides > section { min-width: 0; }
 .cmp-sides h3 { margin: 0 0 8px; font-size: 16px; }
 .cmp-sides .legend { display: none; } /* one shared legend below both calendars */
-.cmp-legend .legend { display: flex; }
+.cmp-legend .legend { display: flex; margin: 8px 0 16px; }
 .cal-cell.cmp-sync { outline: 3px solid var(--ink); outline-offset: -3px; }
 @media (max-width: 899.98px) { .cmp-sides { grid-template-columns: minmax(0, 1fr); } }
 `));
