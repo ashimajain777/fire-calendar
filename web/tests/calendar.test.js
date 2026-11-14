@@ -116,3 +116,31 @@ test('db.withRetry retries network failures only, then gives up', async () => {
   await assert.rejects(withRetry(async () => { k++; throw new Error('NetworkError'); }, [0, 0], async () => {}), /NetworkError/);
   assert.equal(k, 3);
 });
+
+test('calendarModel: the running month is ranked on its complete 10-day periods and labelled so far', () => {
+  const rows = [];
+  for (let y = 2003; y <= 2008; y++) rows.push({ year: y, month: 11, value: 100 * (y - 2002), lo: 0, hi: 0, harm_from: 0 });
+  rows.push({ year: 2009, month: 11, value: 50, lo: 50, hi: 50, harm_from: 0, provisional: true });
+  const base = [2003, 2004, 2005, 2006, 2007, 2008];
+  const cur = { year: 2009, month: 11 };
+  // 14 Nov: dekad 1 complete; 2009 had 40 in 1-10 Nov, base years 10..60 for the same days
+  const mtd = { mode: 'mtd', year: 2009, month: 11, dekads: [1], current: 40, base: [10, 20, 30, 40, 50, 60] };
+  const c = calendarModel(rows, { baseYears: base, currentYM: cur, soFar: mtd }).years[0].cells[10];
+  // 40 against [10..60]: 3 below, 1 equal -> (3 + 0.5) / 6 = 58.3 %, not the full-month 50 vs [100..600]
+  assert.ok(Math.abs(c.pct - 58.333) < 0.01);
+  assert.equal(c.label, 'November 2009, 50 hotspots so far, 58th percentile for 1–10 Nov, provisional');
+  // 5 Nov: no complete period yet -> no comparison, still "so far"
+  const early = calendarModel(rows, { baseYears: base, currentYM: cur, soFar: { mode: 'last_month', year: 2009, month: 10, dekads: [1, 2, 3], current: 0, base: [] } }).years[0].cells[10];
+  assert.equal(early.pct, null);
+  assert.equal(early.label, 'November 2009, 50 hotspots so far, provisional');
+  // 30 Nov: all three periods complete -> an ordinary month
+  const done = calendarModel(rows, { baseYears: base, currentYM: cur, soFar: { ...mtd, dekads: [1, 2, 3], current: 50 } }).years[0].cells[10];
+  assert.equal(done.label, 'November 2009, 50 hotspots, 0th percentile, provisional');
+});
+
+test('monthToDate on the 10th counts the first period as complete', async () => {
+  const { monthToDate } = await import('../stats.js');
+  const r = monthToDate([{ year: 2009, month: 11, dekad: 1, value: 4 }], new Date('2009-11-10T00:00:00Z'), [2003]);
+  assert.equal(r.mode, 'mtd');
+  assert.deepEqual(r.dekads, [1]);
+});

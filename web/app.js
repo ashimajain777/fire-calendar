@@ -284,6 +284,7 @@ function drawCalendar() {
   renderCalendar($('calendar'), ctx.calendarRows, {
     mode: state.mode, metric: ctx.metric, baseYears: ctx.baseYears, gaps: ctx.gaps,
     currentYM: { year: ctx.lastDataDate.getUTCFullYear(), month: ctx.lastDataDate.getUTCMonth() + 1 },
+    soFar: monthToDate(ctx.dekadRows, ctx.lastDataDate, ctx.baseYears),
     onSelect: showMonthPoints,
   });
 }

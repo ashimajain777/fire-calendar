@@ -48,7 +48,8 @@ const ordinal = (n) => {
 };
 
 export function calendarModel(rows, opts = {}) {
-  const { mode = 'counts', metric = 'harm_n', baseYears = [], currentYM = null, gaps = [] } = opts;
+  // soFar: stats.monthToDate() result for the current month, so its cell compares like with like (complete dekads)
+  const { mode = 'counts', metric = 'harm_n', baseYears = [], currentYM = null, gaps = [], soFar = null } = opts;
   const unit = UNITS[metric] || UNITS.harm_n;
   const withUnit = (v) => `${fmt(v)} ${unit}${fmt(v) === '1' ? '' : 's'}`;
   if (!rows || !rows.length) return { mode, years: [], typical: [], legend: [], legendTitle: '' };
@@ -97,10 +98,15 @@ export function calendarModel(rows, opts = {}) {
     const r = byYM.get(ym(year, month)) || {};
     const value = valueOf(year, month);
     const base = baseFor[month - 1];
-    const pct = percentileRank(value, base);
-    const z = zScore(value, base);
-    const pctText = pct === null ? null : `${ordinal(Math.round(pct))} percentile`;
-    const tip = [name, withUnit(value)];
+    // The current month is still running: rank only its complete 10-day periods against the same days in base years.
+    const partial = current && soFar && !(soFar.mode === 'mtd' && soFar.year === year && soFar.month === month && soFar.dekads.length === 3);
+    const mtd = partial && soFar.mode === 'mtd' && soFar.year === year && soFar.month === month ? soFar : null;
+    const days = mtd ? `1–${mtd.dekads.length === 1 ? 10 : 20} ${MONTH_NAMES[month - 1].slice(0, 3)}` : null;
+    const pct = partial ? (mtd ? percentileRank(mtd.current, mtd.base) : null) : percentileRank(value, base);
+    const z = partial ? (mtd ? zScore(mtd.current, mtd.base) : null) : zScore(value, base);
+    const pctText = pct === null ? null : `${ordinal(Math.round(pct))} percentile${mtd ? ` for ${days}` : ''}`;
+    const tip = [name, `${withUnit(value)}${partial ? ' so far' : ''}`];
+    if (partial && !mtd) tip.push('No complete 10-day period yet, so no comparison');
     if (Number.isFinite(r.lo) && Number.isFinite(r.hi) && (r.lo !== value || r.hi !== value)) tip.push(`Range ${fmt(r.lo)}–${fmt(r.hi)}`);
     if (pctText) tip.push(`${pctText} of ${baseSpan}`);
     tip.push(`z-score ${z === null ? '—' : (z > 0 ? '+' : '') + z.toFixed(1).replace('-', '−')}`);
@@ -108,7 +114,7 @@ export function calendarModel(rows, opts = {}) {
     if (r.provisional) tip.push('Provisional (near-real-time data)');
     return {
       ...out, value, pct, z, step: stepOf(value, pct), text: compact(value), tip,
-      label: [name, withUnit(value), pctText, r.provisional ? 'provisional' : null].filter(Boolean).join(', '),
+      label: [name, `${withUnit(value)}${partial ? ' so far' : ''}`, pctText, r.provisional ? 'provisional' : null].filter(Boolean).join(', '),
     };
   };
 
