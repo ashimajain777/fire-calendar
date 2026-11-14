@@ -1,7 +1,7 @@
 name: Deploy site
 description: >
   The one deploy path. Builds the Pages artifact from the repo (web/, data/, config.json) plus the
-  files kept as assets on the "data" release (points_*.parquet, the current-year dekad file, meta.json),
+  files kept as assets on the "data" release (points_*.parquet, the current-year dekad file, gaps.parquet, meta.json when newer),
   so a code push never drops current-year data.
 inputs:
   token:
@@ -24,8 +24,17 @@ runs:
         if gh release view data >/dev/null 2>&1; then
           gh release download data --pattern 'points_*.parquet' --dir _site/data/points --clobber || echo "no points assets"
           gh release download data --pattern 'dekad_*.parquet' --dir _site/data/dekad --clobber || echo "no current-year dekad asset"
-          gh release download data --pattern 'meta.json' --dir _site/data --clobber || echo "no meta asset"
-          gh release download data --pattern 'gate_test.parquet' --dir _site/data/points --clobber || true
+          gh release download data --pattern 'gaps.parquet' --dir _site/data --clobber || echo "no gaps asset"
+          # meta.json: the newer of the committed copy and the release copy wins
+          if gh release download data --pattern 'meta.json' --dir _release_meta --clobber; then
+            rel=$(jq -r '.generated_utc // ""' _release_meta/meta.json)
+            repo=$(jq -r '.generated_utc // ""' data/meta.json 2>/dev/null || echo "")
+            echo "meta generated_utc: release=$rel committed=$repo"
+            if [[ "$rel" > "$repo" ]]; then cp _release_meta/meta.json _site/data/meta.json; fi
+          else
+            echo "no meta asset"
+          fi
+          rm -rf _release_meta
         else
           echo "::warning::release 'data' not found; deploying repo files only"
         fi
