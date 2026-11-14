@@ -41,7 +41,7 @@ test('cellCenter is the middle of the cell and round-trips', () => {
 test('cellsToRanges and rangesSQL', () => {
   assert.deepEqual(cellsToRanges([5, 6, 7, 10]), [[5, 7], [10, 10]]);
   assert.deepEqual(cellsToRanges([]), []);
-  assert.equal(rangesSQL([[5, 7], [10, 10]]), '(cell_id BETWEEN 5 AND 7 OR cell_id = 10)');
+  assert.equal(rangesSQL([[5, 7], [10, 10]]), '(cell_id BETWEEN 5 AND 10 AND (cell_id BETWEEN 5 AND 7 OR cell_id = 10))');
   assert.equal(rangesSQL([[1, 2]], 'c'), '(c BETWEEN 1 AND 2)');
   assert.equal(rangesSQL([]), 'FALSE');
   assert.throws(() => rangesSQL([['1; DROP', 2]]));

@@ -143,7 +143,8 @@ export function rangesSQL(ranges, column = 'cell_id') {
     if (!Number.isInteger(a) || !Number.isInteger(b)) throw new TypeError('Cell ranges must be integers');
     return a === b ? `${column} = ${a}` : `${column} BETWEEN ${a} AND ${b}`;
   });
-  return `(${parts.join(' OR ')})`;
+  // the outer BETWEEN is what lets DuckDB skip row groups by their min/max; an OR of ranges alone is not pushed down
+  return parts.length === 1 ? `(${parts[0]})` : `(${column} BETWEEN ${ranges[0][0]} AND ${ranges[ranges.length - 1][1]} AND (${parts.join(' OR ')}))`;
 }
 
 export function outlineGeoJSON(ids) {
