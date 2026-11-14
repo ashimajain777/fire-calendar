@@ -111,3 +111,14 @@ All numbers below are from `work/build_1.log`, `build_2.log`, `build_3.log`.
 ## Status now
 
 **Left, in order:** accessibility, dark mode, mobile and palette validation (Task 13); deliberate bad-key failure test of the daily job; Phase 5 fresh verification agent and `docs/BUILD_REPORT.md`. Stretch features (comparison, timelapse, climate, exposure, alerts) are **cut**: the usage-limit pauses used the time budget.
+
+## Task 13 and failure test: PASSED
+
+- **Palette validator** (dataviz `validate_palette.js`): map categories `--pairs all` light: all checks pass, contrast WARN on `#1baf7a` (2.74:1) with relief = always-visible legend + 1 px point outline; dark: all pass. Sensor lines (adjacent, light): pass, contrast WARN on `#1baf7a`, `#eda100` with relief = direct end labels + table view.
+- **axe-core 4.10.2** (WCAG 2.0/2.1 A + AA), live site, Punjab box loaded, all tabs opened: first run found 1 violation type (`aria-prohibited-attr`, 21-22 nodes: Observable Plot puts `aria-label` on SVG groups). Fixed in `charts.js` / `methodology.js`. Rerun: **0 violations** on main page (before/after opening tabs) and Methodology page, light and dark.
+- **Keyboard only** (scripted, run twice): 9 Tab stops to the West field; typing 4 values and Enter in North runs the query ("Calendar updated: 27 years, 980 cells"); arrow keys move between calendar cells; every stop had a visible focus style.
+- **200 % zoom** (640 CSS px at scale 2) and **390 px**: no page-level horizontal scroll.
+- **Daily job failure test** (local, `--no-publish`, deliberately invalid key): exit code 1; `meta.json` status `failed`, `last_error` "FirmsError: FIRMS MODIS_SP 2026-01-01: HTTP 400 Invalid MAP_KEY."; key not in the file; previous `last_success_utc` values kept; no points/dekad files written.
+- Not run (need a human): NVDA/VoiceOver screen-reader pass, a physical phone.
+
+**Next:** Phase 5, independent verification agent, then `docs/BUILD_REPORT.md`.
