@@ -8,6 +8,7 @@ from pipeline.harmonize import USABLE, chain_sql, factor_sql, files, q, ratio_jo
 
 _SATS = ("terra", "Terra"), ("aqua", "Aqua"), ("snpp", "SNPP"), ("noaa20", "NOAA20"), ("noaa21", "NOAA21")
 _YEAR = r"(\d{4})\.parquet$"
+OUTAGE_MIN_DAYS = 5   # monsoon spells with no detections reach 4 days in the real data; outages are 7+ days
 
 
 class InvariantError(Exception):
@@ -25,6 +26,13 @@ def build_gaps(con, glob: str, dates: dict) -> pa.Table:
         days AS (SELECT unnest(generate_series(a, b, INTERVAL 1 DAY))::DATE AS d
                  FROM (SELECT min(acq_date) AS a, max(acq_date) AS b FROM read_parquet({q(glob)}))),
         dk AS (SELECT DISTINCT year(d) AS y, month(d) AS m, {dekad_sql('d')} AS k FROM days),
+        -- a run of OUTAGE_MIN_DAYS or more days with no chain-satellite detection anywhere is an outage, not a quiet spell
+        sat_days AS (SELECT DISTINCT acq_date AS d, satellite FROM read_parquet({q(glob)}) WHERE conf_class != 'l'),
+        zero AS (SELECT days.d FROM days WHERE NOT EXISTS (
+                     SELECT 1 FROM sat_days s WHERE s.d = days.d AND s.satellite = {chain_sql('days.d', dates)})),
+        runs AS (SELECT d, d - (row_number() OVER (ORDER BY d))::INTEGER AS grp FROM zero),
+        outage AS (SELECT DISTINCT year(d) AS y, month(d) AS m, {dekad_sql('d')} AS k FROM runs
+                   WHERE grp IN (SELECT grp FROM runs GROUP BY grp HAVING count(*) >= {OUTAGE_MIN_DAYS})),
         g AS (SELECT *, {chain_sql('make_date(y, m, k * 10 - 9)', dates)} AS chain_satellite FROM dk),
         pref(gap, fill, pri) AS (VALUES ('NOAA20', 'SNPP', 1), ('SNPP', 'NOAA20', 1), ('SNPP', 'Aqua', 2),
                                         ('Aqua', 'SNPP', 1), ('Aqua', 'Terra', 2), ('Terra', 'Aqua', 1))
@@ -35,6 +43,7 @@ def build_gaps(con, glob: str, dates: dict) -> pa.Table:
         LEFT JOIN have h ON h.y = g.y AND h.m = g.m AND h.k = g.k AND h.satellite = pref.fill
         WHERE NOT EXISTS (SELECT 1 FROM have c WHERE c.y = g.y AND c.m = g.m AND c.k = g.k
                           AND c.satellite = g.chain_satellite)
+              OR EXISTS (SELECT 1 FROM outage o WHERE o.y = g.y AND o.m = g.m AND o.k = g.k)
         GROUP BY ALL ORDER BY 1, 2, 3""").to_arrow_table()
 
 

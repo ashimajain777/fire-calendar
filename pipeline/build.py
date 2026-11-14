@@ -203,6 +203,7 @@ def step_publish(region: str, upload: bool = True):
     if upload:
         repo = os.environ.get("GITHUB_REPO") or "ashimajain777/fire-calendar"
         release_files.append(DATA / "meta.json")
+        release_files.append(DATA / "gaps.parquet")
         publish.upload_release_assets(release_files, repo)
         print("uploaded", len(release_files), "files to release 'data'")
 

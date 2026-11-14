@@ -66,7 +66,7 @@ export function calendarModel(rows, opts = {}) {
   const stateOf = (y, m) => {
     if (ym(y, m) < first || ym(y, m) > last) return 'empty';
     if (valueOf(y, m) > 0) return 'value';
-    return [1, 2, 3].every((d) => unfilled.has(`${y}-${m}-${d}`)) ? 'nodata' : 'zero';
+    return [1, 2, 3].some((d) => unfilled.has(`${y}-${m}-${d}`)) ? 'nodata' : 'zero';
   };
 
   const measured = (y, m) => stateOf(y, m) === 'value' || stateOf(y, m) === 'zero';

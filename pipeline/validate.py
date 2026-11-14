@@ -14,7 +14,7 @@ LINK_COLS = {"terra_aqua": ("n_terra", "n_aqua"), "aqua_snpp": ("n_aqua", "n_snp
 VARIANTS = ("region", "noregion")
 COVERAGE_GATE = (0.6, 0.95)
 MIN_BOX_OBSERVED = 50
-DIRECT_YEARS = (2018, 2021)
+DIRECT_YEARS = (2019, 2021)   # NOAA-20 starts 2018-04-01, so 2018 is partial
 
 LOYO_SCHEMA = pa.schema([
     ("variant", pa.string()), ("link", pa.string()), ("metric", pa.string()), ("held_year", pa.int16()),
