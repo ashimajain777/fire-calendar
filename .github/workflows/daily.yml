@@ -1,0 +1,60 @@
+name: Daily refresh
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write   # upload to the "data" release
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      # FIRMS chunks already downloaded, and the clip boundary. Cache keys are immutable, so every run
+      # saves under a new key and restores the latest one.
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            work/api
+            work/aux
+          key: daily-work-${{ github.run_id }}
+          restore-keys: daily-work-
+      - name: Clip boundary (Natural Earth, git-ignored work/aux)
+        run: |
+          set -euo pipefail
+          if [ ! -f work/aux/ne_10m_admin_0_countries_ind.shp ]; then
+            mkdir -p work/aux
+            curl -sSfL --retry 3 -o ne.zip https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_countries_ind.zip
+            unzip -o -q ne.zip -d work/aux
+            rm ne.zip
+          fi
+      - name: Refresh current year
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPO: ${{ github.repository }}
+        run: python -m pipeline.daily --region india
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            work/api
+            work/aux
+          key: daily-work-${{ github.run_id }}
+      # Always redeploy: fresh data, or the old data with the failed-status meta.json.
+      # A failed refresh step still leaves the job red after this ran.
+      - uses: ./.github/actions/deploy-site
+        if: always()
+        with:
+          token: ${{ github.token }}
