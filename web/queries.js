@@ -265,6 +265,27 @@ export async function categoryCalendars(db, area, range, metric) {
   return new Map(all.map((c) => [c, fillMonths(rows.filter((r) => r.category === c), clip(range))]));
 }
 
+// Static-mask cells (0.01 degree) inside a [w, s, e, n] box, most persistent first; `total` is the count before the limit.
+export function maskCellsSQL(url, [w, s, e, n], limit) {
+  if (![w, s, e, n].every(Number.isFinite)) throw new TypeError('Bounding box must be four numbers');
+  if (!(Number.isInteger(limit) && limit > 0)) throw new TypeError('limit must be a positive integer');
+  const idx = (deg) => Math.round(deg * 1e6) / 1e4; // in 0.01 degree steps, without float noise
+  const [r0, r1] = [Math.floor(idx(s + 90)), Math.ceil(idx(n + 90)) - 1];
+  const [c0, c1] = [Math.floor(idx(w + 180)), Math.ceil(idx(e + 180)) - 1];
+  return `SELECT (cell001_id // 36000)::INT AS r, (cell001_id % 36000)::INT AS c, reason, n_days_max::INT AS n_days_max, (count(*) OVER ())::INT AS total
+FROM ${fileList([url])}
+WHERE cell001_id // 36000 BETWEEN ${r0} AND ${r1} AND cell001_id % 36000 BETWEEN ${c0} AND ${c1}
+ORDER BY n_days_max DESC, cell001_id LIMIT ${limit}`;
+}
+
+export async function maskCells(db, area, limit = 5000) {
+  const g = area.geometry;
+  const pts = (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).flatMap((p) => p[0]);
+  const bbox = pts.reduce(([w, s, e, n], [x, y]) => [Math.min(w, x), Math.min(s, y), Math.max(e, x), Math.max(n, y)], [Infinity, Infinity, -Infinity, -Infinity]);
+  const cells = await db.query(maskCellsSQL(db.url('tables', 'static_mask.parquet'), bbox, limit));
+  return { cells, total: cells.length ? cells[0].total : 0 };
+}
+
 export function gaps(db) {
   return db.query(`SELECT year::INT AS year, month::INT AS month, dekad::INT AS dekad, chain_satellite, filled_from
 FROM read_parquet('${db.url('tables', 'gaps.parquet')}') ORDER BY year, month, dekad`);
