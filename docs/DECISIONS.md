@@ -119,5 +119,7 @@ Each entry: what was decided, and why. Newest at the bottom.
 
 ## D23. Secondary season peak (added after seeing Punjab's result)
 
-- Round 1 found Punjab + Haryana's April-May peak holds 17.8 % of the typical year, below the 25 % "two seasons" rule. Spring wheat-residue burning there is agronomically well known, so hiding it would mislead.
-- The 25 % rule is unchanged. A separate line now reports any other cluster holding 10 % to 25 % of the typical annual total as "Secondary peak: <dates>, <share> % of the year". The 10 % threshold was set to report such well-known minor seasons while leaving out small bumps; it was chosen after seeing Punjab's number and is stated here for that reason.
+- Round 1 reported that Punjab + Haryana's April-May peak holds 17.8 % of the typical year, below the 25 % "two seasons" rule. That 17.8 % summed all of April and May. Spring wheat-residue burning there is agronomically well known, so hiding it would mislead.
+- The 25 % rule is unchanged. A separate line reports any other bump holding 10 % to 25 % of the typical annual total as "Secondary peak: <dates>, <share> % of the year".
+- **How a bump is measured (decided after seeing the data, stated here for that reason):** the first implementation reused the season clusters (dekads at 20 % or more of the main peak). On the real Punjab profile that cut the spring bump to one dekad holding 9.1 %, because its shoulder dekad sits at 18 % of the November peak. A small peak should not be measured against a much larger one, so a secondary bump now runs from its local maximum down to the troughs on either side (a trough shared with the main season stays with the main season), and its displayed dates are its dekads at 20 % or more of its own peak. Result on Punjab: 21-30 Apr to 11-20 May, 18.5 % of the year.
+- Thresholds (10 %, 20 % of own peak) were set with Punjab in view; they are not tuned per area, and other areas get the same rule.

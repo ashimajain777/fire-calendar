@@ -204,3 +204,20 @@ test('season: a separate cluster with 10-25 % of the year is a secondary peak, n
   const small = rows.map((r) => ([10, 11].includes((r.month - 1) * 3 + r.dekad - 1) ? { ...r, value: 35 } : r));
   assert.equal(season(small, [2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010]).secondary.length, 0);
 });
+
+test('season: a secondary peak that shares its trough with the main season is still found', async () => {
+  const { season } = await import('../stats.js');
+  // main season dekads 28-32 falling steadily through winter to a trough at dekad 9; spring bump at 10-12
+  const prof = Array.from({ length: 36 }, (_, i) => {
+    if (i >= 28 && i <= 32) return 500;
+    if (i > 32 || i < 9) return 60 - ((i + 36 - 33) % 36) * 5; // 60, 55, ... down to 9 at the trough
+    if (i === 9) return 2;
+    if (i >= 10 && i <= 12) return [80, 120, 70][i - 10];
+    return 1;
+  });
+  const rows = [];
+  for (let y = 2003; y <= 2008; y++) prof.forEach((v, i) => rows.push({ year: y, month: Math.floor(i / 3) + 1, dekad: (i % 3) + 1, value: v }));
+  const s = season(rows, [2003, 2004, 2005, 2006, 2007, 2008]);
+  assert.equal(s.secondary.length, 1);
+  assert.equal(s.secondary[0].peak, 11);
+});

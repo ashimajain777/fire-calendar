@@ -170,13 +170,28 @@ export function season(dekadRows, baseYears, bounds = {}) {
     .sort((a, b) => ((a[0] - start + 36) % 36) - ((b[0] - start + 36) % 36));
   const twoSeasons = big.length >= 2;
   const peaks = twoSeasons ? big.map((c) => c.reduce((best, i) => (clim[i] > clim[best] ? i : best))) : [peak];
-  // Secondary peaks: a separate cluster with >= 10 % of the typical year that is not a season of its own
-  // (added after Punjab's 17.8 % spring wheat burning; see DECISIONS D23). The 25 % two-season rule is unchanged.
-  const secondary = clusters(clim, peakValue)
-    .filter((c) => !c.includes(peak) && !big.includes(c))
-    .map((c) => ({ c, share: sum(c.map((i) => clim[i])) / total }))
-    .filter((x) => x.share >= 0.1 && x.share < 0.25)
-    .map(({ c, share }) => ({ peak: c.reduce((best, i) => (clim[i] > clim[best] ? i : best)), from: c[0], to: c[c.length - 1], share }));
+  // Secondary peaks: a separate bump with 10-25 % of the typical year that is not a season of its own. A bump runs
+  // from its local maximum down to the troughs on either side, so a small peak is not cut off at a fraction of the
+  // much larger main peak (added after seeing Punjab's spring peak; DECISIONS D23). The 25 % two-season rule is unchanged.
+  const at = (i) => clim[((i % 36) + 36) % 36];
+  const bumpOf = (m) => {
+    let a = m;
+    let b = m;
+    while (b - a < 35 && at(a - 1) === clim[m]) a--; // flat top
+    while (b - a < 35 && at(b + 1) === clim[m]) b++;
+    while (b - a < 35 && at(a - 1) < at(a)) a--;
+    while (b - a < 35 && at(b + 1) < at(b)) b++;
+    return Array.from({ length: b - a + 1 }, (_, k) => ((a + k) % 36 + 36) % 36);
+  };
+  const taken = new Set([...bumpOf(peak), ...big.flat()]);
+  const secondary = zeros.map((_, m) => m)
+    .filter((m) => clim[m] > 0 && at(m - 1) < clim[m] && at(m + 1) <= clim[m] && !taken.has(m))
+    .map((m) => ({ m, c: bumpOf(m).filter((i) => !taken.has(i)) })) // a trough shared with the main bump stays with it
+    .map(({ m, c }) => {
+      const core = c.filter((i) => clim[i] >= 0.2 * clim[m]); // dates shown: the bump's dekads at >= 20 % of its own peak
+      return { peak: m, from: core[0], to: core[core.length - 1], share: sum(c.map((i) => clim[i])) / total };
+    })
+    .filter((x) => x.share >= 0.1 && x.share < 0.25);
 
   // A season-year is the 36 dekads from `start`, labelled by the calendar year it starts in.
   // It is only measured when the data reaches its last dekad; a partial total would shift 10 % and 90 %.
