@@ -8,6 +8,7 @@ import { calendarModel } from './calendar.js';
 export const CATEGORY_NAMES = ['Agricultural', 'Forest', 'Grass / shrub', 'Other vegetation', 'Urban', 'Industrial / static', 'Volcanic', 'Offshore'];
 const METRICS = ['harm_n', 'harm_fd'];
 const RAW = 'n_terra + n_aqua + n_snpp + n_noaa20 + n_noaa21';
+const SENSORS = ['n_terra', 'n_aqua', 'n_snpp', 'n_noaa20', 'n_noaa21'];
 const POINT_COLUMNS = ['lat', 'lon', 'acq_date', 'acq_time', 'sensor', 'satellite', 'confidence_raw', 'conf_class', 'frp', 'daynight',
   'brightness', 'firms_type', 'processing', 'version', 'cell_id', 'cell001_id', 'region_id', 'category',
   'in_baseline_chain', 'harm_weight', 'harm_weight_lo', 'harm_weight_hi'];
@@ -39,6 +40,18 @@ const datesSQL = (range) => {
   return `acq_date BETWEEN DATE '${range.from}-01' AND DATE '${range.to}-${String(lastDay).padStart(2, '0')}'`;
 };
 
+// Fire-days for a set of categories count each cell-day once: the per-category day masks are OR-ed within a
+// cell and 10-day period before counting. Harmonized fire-days scale that union by the selected categories' own
+// conversion (sum harm_fd / sum fd_base), which is exact from NOAA-20 on (ratio 1).
+export function cellDekadsSQL(urls, ranges, cats, byCategory = false) {
+  const g = byCategory ? ', category' : '';
+  const fd = ['', '_lo', '_hi'].map((s) => `coalesce(sum(harm_fd${s}) * bit_count(bit_or(day_mask)) / nullif(sum(fd_base), 0), 0) AS harm_fd${s}`);
+  return `(SELECT cell_id, year, month, dekad, harm_from${g}, sum(harm_n) AS harm_n, sum(harm_n_lo) AS harm_n_lo, sum(harm_n_hi) AS harm_n_hi,
+    bit_count(bit_or(day_mask)) AS fd_base, ${fd.join(', ')}, max(processing) AS processing,
+    ${SENSORS.map((c) => `sum(${c}) AS ${c}`).join(', ')}, sum(n_lowconf) AS n_lowconf
+  FROM ${fileList(urls)} WHERE ${rangesSQL(ranges)} AND ${catsSQL(cats)} GROUP BY cell_id, year, month, dekad, harm_from${g})`;
+}
+
 export function yearsBetween(from, to) {
   const out = [];
   for (let y = from; y <= to; y++) out.push(y);
@@ -59,15 +72,15 @@ export function calendarSQL(urls, ranges, cats, metric, range, byCategory = fals
   arg_max(harm_from, v)::INT AS harm_from, bool_or(p) AS provisional, sum(raw)::INT AS raw, sum(lowconf)::INT AS lowconf
 FROM (SELECT ${g}year, month, harm_from, sum(${m}) AS v, sum(${m}_lo) AS lo, sum(${m}_hi) AS hi,
     bool_or(processing = 1) AS p, sum(${RAW}) AS raw, sum(n_lowconf) AS lowconf
-  FROM ${fileList(urls)}
-  WHERE ${rangesSQL(ranges)} AND ${catsSQL(cats)} AND ${monthsSQL(range)}
+  FROM ${cellDekadsSQL(urls, ranges, cats, byCategory)}
+  WHERE ${monthsSQL(range)}
   GROUP BY ${g}year, month, harm_from)
 GROUP BY ${g}year, month ORDER BY ${g}year, month`;
 }
 
 export function dekadSeriesSQL(urls, ranges, cats, metric) {
   return `SELECT year::INT AS year, month::INT AS month, dekad::INT AS dekad, sum(${metricCol(metric)})::DOUBLE AS value
-FROM ${fileList(urls)} WHERE ${rangesSQL(ranges)} AND ${catsSQL(cats)}
+FROM ${cellDekadsSQL(urls, ranges, cats)}
 GROUP BY year, month, dekad ORDER BY year, month, dekad`;
 }
 
@@ -75,24 +88,23 @@ export function annualSQL(urls, ranges, cats, metric) {
   const m = metricCol(metric);
   return `SELECT year::INT AS year, sum(${m})::DOUBLE AS value, sum(${m}_lo)::DOUBLE AS lo, sum(${m}_hi)::DOUBLE AS hi,
   sum(n_terra)::INT AS n_terra, sum(n_aqua)::INT AS n_aqua, sum(n_snpp)::INT AS n_snpp, sum(n_noaa20)::INT AS n_noaa20, sum(n_noaa21)::INT AS n_noaa21
-FROM ${fileList(urls)} WHERE ${rangesSQL(ranges)} AND ${catsSQL(cats)}
+FROM ${cellDekadsSQL(urls, ranges, cats)}
 GROUP BY year ORDER BY year`;
 }
 
 export function sensorTotalsSQL(urls, ranges, cats, range) {
   return `SELECT coalesce(sum(n_terra), 0)::INT AS n_terra, coalesce(sum(n_aqua), 0)::INT AS n_aqua, coalesce(sum(n_snpp), 0)::INT AS n_snpp,
   coalesce(sum(n_noaa20), 0)::INT AS n_noaa20, coalesce(sum(n_noaa21), 0)::INT AS n_noaa21
-FROM ${fileList(urls)} WHERE ${rangesSQL(ranges)} AND ${catsSQL(cats)} AND ${monthsSQL(range)}`;
+FROM ${cellDekadsSQL(urls, ranges, cats)} WHERE ${monthsSQL(range)}`;
 }
 
 // One pass over the dekad files for everything the main page shows (each extra pass costs a round of file reads).
-const SENSORS = ['n_terra', 'n_aqua', 'n_snpp', 'n_noaa20', 'n_noaa21'];
 export function overviewSQL(urls, ranges, cats) {
   return `SELECT year::INT AS year, month::INT AS month, dekad::INT AS dekad, harm_from::INT AS harm_from,
   sum(harm_n)::DOUBLE AS harm_n, sum(harm_n_lo)::DOUBLE AS harm_n_lo, sum(harm_n_hi)::DOUBLE AS harm_n_hi,
   sum(harm_fd)::DOUBLE AS harm_fd, sum(harm_fd_lo)::DOUBLE AS harm_fd_lo, sum(harm_fd_hi)::DOUBLE AS harm_fd_hi,
   bool_or(processing = 1) AS provisional, ${SENSORS.map((c) => `sum(${c})::INT AS ${c}`).join(', ')}, sum(n_lowconf)::INT AS lowconf
-FROM ${fileList(urls)} WHERE ${rangesSQL(ranges)} AND ${catsSQL(cats)}
+FROM ${cellDekadsSQL(urls, ranges, cats)}
 GROUP BY year, month, dekad, harm_from ORDER BY year, month, dekad, harm_from`;
 }
 
@@ -238,6 +250,13 @@ export async function calendar(db, area, range, cats, metric) {
   const urls = dekadUrls(db, range);
   if (!urls.length) return [];
   return fillMonths(await db.query(calendarSQL(urls, area.ranges, cats, metric, range)), clip(range));
+}
+
+// Unconverted fire-days (distinct cell-days with an in-chain detection) for the selection: the cross-check's
+// independent comparison against distinct (cell, date) counted in the points files.
+export async function fireDaysBase(db, area, range, cats) {
+  const [r] = await db.query(`SELECT coalesce(sum(fd_base), 0)::BIGINT AS fd FROM ${cellDekadsSQL(dekadUrls(db, range), area.ranges, cats)} WHERE ${monthsSQL(range)}`);
+  return r.fd;
 }
 
 export const dekadSeries = (db, area, cats, metric) => db.query(dekadSeriesSQL(dekadUrls(db), area.ranges, cats, metric));

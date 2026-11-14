@@ -46,7 +46,23 @@ def totals(con, bbox) -> dict:
       SELECT year, month, sum(harm_n) v FROM read_parquet({files})
       WHERE cell_id IN (SELECT cell_id FROM a) AND category IN (0,1,2,3)
       GROUP BY 1, 2 ORDER BY v DESC LIMIT 1""").fetchone()
-    return {"bbox": bbox, "cells": r[0], "harm_landscape": round(r[1] or 0, 1),
+    # independent of the dekad table: distinct (cell, date) with an in-chain landscape detection, from the points files
+    # (a gap-filled period counts the filling satellite's usable detections instead, as the pipeline does)
+    pts = (ROOT / "work" / "points").as_posix() + "/points_*.parquet"
+    gaps = (ROOT / "data" / "gaps.parquet").as_posix()
+    fd = con.execute(f"""
+      WITH a AS (SELECT cell_id FROM '{cells}' WHERE in_coverage
+                 AND lat_c >= {s} AND lat_c <= {n} AND lon_c >= {w} AND lon_c <= {e}),
+      g AS (SELECT * FROM '{gaps}' WHERE filled_from IS NOT NULL),
+      p AS (SELECT pt.cell_id, pt.acq_date, pt.in_baseline_chain, pt.satellite, pt.conf_class, pt.category, g.filled_from
+            FROM read_parquet('{pts}') pt
+            LEFT JOIN g ON g.year = year(pt.acq_date) AND g.month = month(pt.acq_date)
+                       AND g.dekad = CASE WHEN day(pt.acq_date) <= 10 THEN 1 WHEN day(pt.acq_date) <= 20 THEN 2 ELSE 3 END
+            WHERE pt.cell_id IN (SELECT cell_id FROM a) AND pt.category IN (0,1,2,3))
+      SELECT count(*) FROM (SELECT DISTINCT cell_id, acq_date FROM p
+        WHERE CASE WHEN filled_from IS NULL THEN in_baseline_chain ELSE satellite = filled_from AND conf_class != 'l' END)
+    """).fetchone()[0]
+    return {"bbox": bbox, "cells": r[0], "fire_days_landscape": int(fd), "harm_landscape": round(r[1] or 0, 1),
             "raw_landscape": int(r[2] or 0), "points_all": int(r[3] or 0),
             "top_month": [top[0], top[1], round(top[2], 1)] if top else None}
 

@@ -80,6 +80,7 @@ def build_dekad(con, glob: str, ratios: pa.Table, variant: str, dates: dict, gap
                        coalesce(sum(w) FILTER (ok), 0) AS harm_n, coalesce(sum(w_lo) FILTER (ok), 0) AS harm_n_lo,
                        coalesce(sum(w_hi) FILTER (ok), 0) AS harm_n_hi,
                        count(DISTINCT acq_date) FILTER (ok) AS fd_base,
+                       coalesce(bit_or((1 << (day(acq_date) - (dekad - 1) * 10 - 1))::SMALLINT) FILTER (ok), 0) AS day_mask,
                        coalesce(sum(frp) FILTER (ok), 0) AS frp_sum, max(frp) FILTER (ok) AS frp_max,
                        max((processing = 'NRT')::INTEGER) AS processing,
                        count(*) FILTER (ok AND (w IS NULL OR w_lo IS NULL OR w_hi IS NULL)) AS n_null
@@ -88,6 +89,7 @@ def build_dekad(con, glob: str, ratios: pa.Table, variant: str, dates: dict, gap
                    a.category::TINYINT AS category, a.n_terra, a.n_aqua, a.n_snpp, a.n_noaa20, a.n_noaa21, a.n_lowconf,
                    a.harm_n::REAL AS harm_n, a.harm_n_lo::REAL AS harm_n_lo, a.harm_n_hi::REAL AS harm_n_hi,
                    a.fd_base::SMALLINT AS fd_base,
+                   a.day_mask::SMALLINT AS day_mask,
                    (CASE WHEN a.fd_base = 0 THEN 0 ELSE a.fd_base * {factor_sql(sat, '_wf')} END)::REAL AS harm_fd,
                    (CASE WHEN a.fd_base = 0 THEN 0 ELSE a.fd_base * {factor_sql(sat, '_wf', '_lo')} END)::REAL AS harm_fd_lo,
                    (CASE WHEN a.fd_base = 0 THEN 0 ELSE a.fd_base * {factor_sql(sat, '_wf', '_hi')} END)::REAL AS harm_fd_hi,
@@ -120,6 +122,8 @@ def check_invariants(con, points_glob: str, dekad_glob: str) -> None:
            f"""SELECT count(*) FROM read_parquet({q(dekad_glob)}, filename = true)
                WHERE year IS DISTINCT FROM {file_year}"""):
         raise InvariantError("date_range")
+    if one(f"SELECT count(*) FROM {D} WHERE bit_count(day_mask) != fd_base"):
+        raise InvariantError("day_mask")
     if one(f"SELECT coalesce(sum(n_terra + n_aqua + n_snpp + n_noaa20 + n_noaa21 + n_lowconf), 0) FROM {D}") != one(
             f"SELECT count(*) FROM {P}"):
         raise InvariantError("conservation")

@@ -102,3 +102,10 @@ Each entry: what was decided, and why. Newest at the bottom.
 ## D20. Stretch features are cut
 
 - Comparison mode, timelapse, climate context, exposure and alerts are not built. The build was paused five times by usage limits, so the remaining time goes to Core polish (Task 13) and the mandatory verification and report. The architecture notes for each are in PLAN §14.
+
+## D21. Fire-days are a union across categories (per-row day bitmask)
+
+- The dekad table gets `day_mask SMALLINT`: bit i = a detection on day i of the 10-day period (11 bits cover a 31-day month's last period). The browser ORs the masks of the selected categories within each cell and period, and counts the bits, so a cell-day counts once for any combination of toggles. Exact, and only 2 bytes per row (dekad files grew from 30.7 to 33.4 MB in total).
+- Harmonized fire-days for a selection = union count × (sum of the categories' harmonized fire-days / sum of their raw fire-days) in that cell and period. From NOAA-20 on the ratio is 1, so this is exact; before that it is the categories' own conversion, weighted by their fire-days.
+- Chosen over storing precomputed unions (landscape, all, singles), which would be exact only for those combinations.
+- Measured on 2021 landscape categories: per-category sum 233,561 vs union 210,880 (the old view overcounted by 10.8 %).

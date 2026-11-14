@@ -19,7 +19,8 @@ test('calendarSQL has the cell predicate, the category list, the month window an
   assert.match(sql, /sum\(harm_fd_hi\)/);
   assert.match(sql, /processing = 1/);
   assert.match(sql, /n_terra \+ n_aqua \+ n_snpp \+ n_noaa20 \+ n_noaa21/);
-  assert.doesNotMatch(sql, /harm_n\b/);
+  assert.match(sql, /sum\(harm_fd\) AS v/);
+  assert.match(sql, /bit_count\(bit_or\(day_mask\)\)/); // fire-days are a union across the selected categories
 });
 
 test('no builder contains a data location of its own', () => {
@@ -38,7 +39,7 @@ test('no builder contains a data location of its own', () => {
 
 test('empty selections match nothing instead of producing invalid SQL', () => {
   const sql = calendarSQL(URLS, [], [], 'harm_n', RANGE);
-  assert.match(sql, /WHERE FALSE AND FALSE AND/);
+  assert.match(sql, /WHERE FALSE AND FALSE GROUP BY/);
 });
 
 test('bad inputs are rejected, not interpolated', () => {

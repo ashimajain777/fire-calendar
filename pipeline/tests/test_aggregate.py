@@ -123,3 +123,20 @@ def test_multi_day_outage_flags_partial_dekads(tmp_path, monkeypatch):
     days = [1, 2, 3] + list(range(12, 32))
     _, _, _, gaps, _ = build(tmp_path, [pt("NOAA20", f"2020-01-{d:02d}") for d in days])
     assert [(g["month"], g["dekad"]) for g in gaps if g["year"] == 2020] == [(1, 1), (1, 2)]
+
+
+def test_fire_days_union_across_categories(tmp_path):
+    """One cell-day with fires in two categories: each category row says 1 day, the union of their masks is 1 day."""
+    con, pg, dg, _, _ = build(tmp_path, [pt("NOAA20", "2020-01-02", cat=0), pt("NOAA20", "2020-01-02", cat=1),
+                                         pt("NOAA20", "2020-01-04", cat=1)])
+    rows = con.execute(f"SELECT category, fd_base, day_mask FROM read_parquet('{dg}') ORDER BY 1").fetchall()
+    assert rows == [(0, 1, 0b10), (1, 2, 0b1010)]
+    union = con.execute(f"""SELECT bit_count(bit_or(day_mask)) FROM read_parquet('{dg}')
+                            GROUP BY cell_id, year, month, dekad""").fetchone()[0]
+    assert union == 2          # 2 and 4 Jan, not 3 (the per-category sum)
+    aggregate.check_invariants(con, pg, dg)
+
+
+def test_day_mask_last_dekad_31st(tmp_path):
+    con, _, dg, _, _ = build(tmp_path, [pt("NOAA20", "2020-01-21"), pt("NOAA20", "2020-01-31")])
+    assert con.execute(f"SELECT day_mask FROM read_parquet('{dg}')").fetchone()[0] == (1 << 0) | (1 << 10)

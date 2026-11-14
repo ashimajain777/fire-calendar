@@ -158,7 +158,7 @@ def step_aggregate(region: str):
     out.mkdir(parents=True, exist_ok=True)
     aggregate.build_dekad(c, g("points"), ratios, s["variant"], dates, gaps, out)
     aggregate.check_invariants(c, g("points"), (out / "dekad_*.parquet").as_posix())
-    print("invariants: PASS (conservation, harm_equals_weights, duplicates, date_range)")
+    print("invariants: PASS (conservation, harm_equals_weights, duplicates, date_range, day_mask)")
     sizes = {p.name: p.stat().st_size for p in sorted(out.glob("dekad_*.parquet"))}
     print("dekad file sizes (bytes): max", max(sizes.values()), "total", sum(sizes.values()))
     assert max(sizes.values()) < 100 * 1024 * 1024
