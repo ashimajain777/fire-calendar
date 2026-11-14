@@ -220,6 +220,11 @@ function years(range) {
 }
 const dekadUrls = (db, range) => years(range).map((y) => db.url('dekad', `dekad_${y}.parquet`));
 const pointUrls = (db, range) => years(range).map((y) => db.url('points', `points_${y}.parquet`));
+// Reads every dekad file's footer in the background so the first area query does not pay for it.
+// cell_id < 0 matches no row group, so only metadata is fetched.
+export function warm(db) {
+  return db.query(`SELECT count(*) FROM ${fileList(dekadUrls(db))} WHERE cell_id < 0`).catch(() => null);
+}
 const fullRange = () => ({ from: `${coverageYears[0]}-01`, to: `${coverageYears[coverageYears.length - 1]}-12` });
 // Trim the zero-fill to the months the data covers, so months after the last acquisition are not shown as 0.
 let coverageMonths = null;

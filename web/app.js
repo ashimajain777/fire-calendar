@@ -456,6 +456,7 @@ async function start() {
     state.config.version = state.meta.generated_utc;
     state.db = await initDB(state.config);
     [state.coverage, state.gaps] = await Promise.all([q.coverage(state.db), q.gaps(state.db)]);
+    q.warm(state.db); // not awaited: the page is usable while file metadata loads
     let [s, n, w, e] = [Infinity, -Infinity, Infinity, -Infinity];
     for (const id of state.coverage) {
       const [lat, lon] = cellCenter(id);

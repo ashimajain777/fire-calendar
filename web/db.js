@@ -69,6 +69,8 @@ export async function initDB(config) {
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
   URL.revokeObjectURL(workerUrl);
   const con = await db.connect();
+  // Keep Parquet footers in memory between queries (setting name differs across DuckDB versions; either may be absent).
+  for (const s of ['SET enable_object_cache = true', 'SET parquet_metadata_cache = true']) await con.query(s).catch(() => {});
 
   async function run(sql) {
     try {
