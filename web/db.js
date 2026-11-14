@@ -77,7 +77,10 @@ export async function initDB(config) {
     url(key, file) {
       const base = config && config.data && config.data[key];
       if (!base) throw new Error(`config.json has no data.${key}`);
-      return new URL(base + file, location.href).href;
+      const u = new URL(base + file, location.href);
+      // one version per data publish, so a CDN never mixes byte ranges from two versions of a file
+      if (config.version) u.searchParams.set('v', config.version);
+      return u.href;
     },
   };
 }

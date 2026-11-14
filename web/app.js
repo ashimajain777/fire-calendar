@@ -446,6 +446,7 @@ async function start() {
     state.meta = await q.meta(state.config);
     showFreshness(state.meta);
     if (!state.meta) throw new Error("Couldn't load meta.json, so the data period is unknown.");
+    state.config.version = state.meta.generated_utc;
     state.db = await initDB(state.config);
     [state.coverage, state.gaps] = await Promise.all([q.coverage(state.db), q.gaps(state.db)]);
     let [s, n, w, e] = [Infinity, -Infinity, Infinity, -Infinity];

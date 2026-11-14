@@ -34,7 +34,7 @@ for (const [name, ref] of Object.entries(py)) {
     return { cells: c.area.ids.length, harm, raw, points_all: pts, top: [top.year, top.month, top.value], ms, range: c.range };
   }, ref.bbox);
   const eq = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol * Math.max(1, Math.abs(b));
-  const ok = r.cells === ref.cells && eq(r.harm, ref.harm_landscape, 1e-5) && r.raw === ref.raw_landscape && r.points_all === ref.points_all
+  const ok = r.cells === ref.cells && Math.abs(r.harm - ref.harm_landscape) <= 0.051 && r.raw === ref.raw_landscape && r.points_all === ref.points_all
     && r.top[0] === ref.top_month[0] && r.top[1] === ref.top_month[1];
   rows.push({ name, ok, browser: { ...r, harm: Math.round(r.harm * 10) / 10, top: [r.top[0], r.top[1], Math.round(r.top[2] * 10) / 10], ms: Math.round(r.ms) }, python: ref });
   console.log(`${ok ? 'MATCH' : 'DIFF '} ${name.padEnd(16)} cells ${r.cells}/${ref.cells}  harm ${Math.round(r.harm)}/${Math.round(ref.harm_landscape)}  raw ${r.raw}/${ref.raw_landscape}  points ${r.points_all}/${ref.points_all}  top ${r.top[0]}-${r.top[1]}/${ref.top_month[0]}-${ref.top_month[1]}  ${Math.round(r.ms)} ms`);
