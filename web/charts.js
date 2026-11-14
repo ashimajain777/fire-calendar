@@ -19,7 +19,7 @@ export const fmt = (v) => (v < 10 && !Number.isInteger(v)
   ? v.toLocaleString('en-US', { maximumFractionDigits: 1 })
   : Math.round(v).toLocaleString('en-US'));
 const signed = (v, digits) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(digits)}`;
-export const fmtPct = (v) => (v === null ? '—' : `${signed(v, Math.abs(v) < 10 ? 1 : 0)}%`);
+export const fmtPct = (v) => (v === null ? '—' : `${signed(v, Math.abs(v) < 9.95 ? 1 : 0)}%`);
 export const fmtZ = (v) => (v === null ? '—' : signed(v, 1));
 export const ordinal = (n) => {
   const t = n % 100;
@@ -87,7 +87,7 @@ export function sensorRows(queryRows, annual, meta) {
   for (const a of annual) {
     if (a.months !== available(a.year)) { dropped.push(a.year); continue; }
     const q = byYear.get(a.year) || {};
-    const out = { year: a.year, complete: a.complete, months: a.months };
+    const out = { year: a.year, complete: a.complete, months: a.months, nodata: !!a.nodata };
     for (const s of SENSORS) out[s.key] = (q[s.key] || 0) === 0 && a.year < start(s) ? null : (q[s.key] || 0);
     rows.push(out);
   }
@@ -214,6 +214,7 @@ export function responsive(el, draw) {
   };
   const ro = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(run, width ? 150 : 0); });
   ro.observe(el);
+  timer = setTimeout(run, 0); // first draw does not wait for a rendered frame (a background tab has none)
   return () => { ro.disconnect(); clearTimeout(timer); };
 }
 

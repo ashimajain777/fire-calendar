@@ -77,7 +77,7 @@ test('sensorRows: null before launch, real zeros after, and years cut by the sel
   const meta = { coverage_start: '2000-11-01', coverage_end: '2026-11-13', chain: { aqua_start: '2002-08-01', snpp_start: '2012-02-01', noaa20_start: '2018-04-01' } };
   const annual = [
     { year: 2000, months: 2, complete: false }, // all the months the data has for 2000
-    { year: 2001, months: 12, complete: true },
+    { year: 2001, months: 12, complete: true, nodata: true },
     { year: 2019, months: 12, complete: true },
     { year: 2020, months: 5, complete: false }, // the selected dates end in May 2020
   ];
@@ -89,9 +89,9 @@ test('sensorRows: null before launch, real zeros after, and years cut by the sel
   const out = sensorRows(q, annual, meta);
   assert.deepEqual(out.dropped, [2020]);
   assert.deepEqual(out.rows, [
-    { year: 2000, complete: false, months: 2, n_terra: 3, n_aqua: null, n_snpp: null, n_noaa20: null },
-    { year: 2001, complete: true, months: 12, n_terra: 0, n_aqua: null, n_snpp: null, n_noaa20: null },
-    { year: 2019, complete: true, months: 12, n_terra: 0, n_aqua: 4, n_snpp: 9, n_noaa20: 11 },
+    { year: 2000, complete: false, months: 2, nodata: false, n_terra: 3, n_aqua: null, n_snpp: null, n_noaa20: null },
+    { year: 2001, complete: true, months: 12, nodata: true, n_terra: 0, n_aqua: null, n_snpp: null, n_noaa20: null },
+    { year: 2019, complete: true, months: 12, nodata: false, n_terra: 0, n_aqua: 4, n_snpp: 9, n_noaa20: 11 },
   ]);
 });
 
