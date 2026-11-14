@@ -101,3 +101,18 @@ test('db.js CSV quoting', () => {
   assert.equal(csvLines(['a', 'b,c'], [{ a: 1, 'b,c': 'x' }, { a: null, 'b,c': '"' }]), 'a,"b,c"\r\n1,x\r\n,""""\r\n');
   assert.equal(csvLines(['a'], []), 'a\r\n');
 });
+
+test('db.withRetry retries network failures only, then gives up', async () => {
+  const { withRetry, isTransient } = await import('../db.js');
+  let n = 0;
+  const flaky = async () => { n++; if (n < 3) throw new Error("NetworkError: Failed to execute 'send' on 'XMLHttpRequest'"); return 'ok'; };
+  assert.equal(await withRetry(flaky, [0, 0], async () => {}), 'ok');
+  assert.equal(n, 3);
+  let m = 0;
+  await assert.rejects(withRetry(async () => { m++; throw new Error('Binder Error: column x not found'); }, [0, 0], async () => {}), /Binder/);
+  assert.equal(m, 1);
+  assert.equal(isTransient(new Error('IO Error: No files found that match the pattern')), false);
+  let k = 0;
+  await assert.rejects(withRetry(async () => { k++; throw new Error('NetworkError'); }, [0, 0], async () => {}), /NetworkError/);
+  assert.equal(k, 3);
+});

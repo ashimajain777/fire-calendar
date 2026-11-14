@@ -89,9 +89,11 @@ Each entry: what was decided, and why. Newest at the bottom.
 
 - FIRMS has no per-country file for NOAA-21, so 2023-2025 NOAA-21 detections are not in the archive. 2026 NOAA-21 detections are fetched, stored and exported with weight 0. They don't affect the harmonized series.
 
-## D18. Data URLs are versioned per publish
+## D18. Data URLs are versioned per publish, and file reads are retried (corrected)
 
-- Every data URL gets `?v=<meta.generated_utc>`. Without it, Pages' CDN (10-minute cache) served byte ranges from two versions of `points_2026.parquet` after a redeploy and the browser failed to read it. Seen on the live site, fixed, and rechecked with 0 errors.
+- Seen on the live site twice: a points file read failed with "NetworkError" in the first minutes after a deploy, then worked a few minutes later with no change (cross-check: error right after deploy, 8/8 MATCH and 0 errors on the rerun).
+- First explanation (CDN cache keyed by URL, fixed by `?v=<meta.generated_utc>`) was **wrong**: probing with random `?probe=` parameters returns `X-Cache: HIT`, so GitHub Pages' CDN ignores query strings. The parameter is kept because it does stop the *browser's* own 10-minute cache from mixing versions.
+- Actual mitigation: `db.js` retries a query whose error is network-level (not SQL errors, not missing files) after 3 s and 10 s (`withRetry`, unit-tested). The root cause on the CDN side is not proven; the failures only occurred within minutes of a deploy.
 
 ## D19. Playwright uses the installed Microsoft Edge
 

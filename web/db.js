@@ -44,6 +44,22 @@ function toRows(table) {
   return { columns, rows };
 }
 
+// Retries only network-level failures (not SQL or missing-file errors), after 3 s and then 10 s.
+export function isTransient(e) {
+  return /NetworkError|Failed to fetch|Failed to load/i.test(String(e && e.message ? e.message : e)) && !/No files found|HTTP 404/i.test(String(e && e.message ? e.message : e));
+}
+
+export async function withRetry(fn, delays = [3000, 10000], sleep = (ms) => new Promise((r) => setTimeout(r, ms))) {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i >= delays.length || !isTransient(e)) throw e;
+      await sleep(delays[i]);
+    }
+  }
+}
+
 export async function initDB(config) {
   const duckdb = await import(DUCKDB_ESM);
   const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
@@ -56,7 +72,8 @@ export async function initDB(config) {
 
   async function run(sql) {
     try {
-      return toRows(await con.query(sql));
+      // A file read can fail for a short time right after a deploy while the CDN holds mixed versions of a file.
+      return toRows(await withRetry(() => con.query(sql)));
     } catch (e) {
       const files = [...new Set([...sql.matchAll(/'([^']+\.(?:parquet|json|csv))'/g)].map((m) => m[1]))];
       throw new Error(`Couldn't load ${files.length ? files.join(', ') : 'query result'}: ${e && e.message ? e.message : e}`, { cause: e });
