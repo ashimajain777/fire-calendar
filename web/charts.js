@@ -201,6 +201,18 @@ export function loadPlot() {
   return plotP;
 }
 
+// Observable Plot puts aria-label on <g> mark groups without a role, which ARIA forbids. Keep the label on the
+// root <svg> (as role="img"), drop it from inner groups; the table view carries every value for screen readers.
+export function plotA11y(node) {
+  if (!node || !node.querySelectorAll) return node;
+  const svgs = node.tagName && node.tagName.toLowerCase() === 'svg' ? [node] : [...node.querySelectorAll('svg')];
+  for (const svg of svgs) {
+    if (svg.getAttribute('aria-label')) svg.setAttribute('role', 'img');
+    svg.querySelectorAll('[aria-label]:not([role])').forEach((el) => { if (el !== svg) el.removeAttribute('aria-label'); });
+  }
+  return node;
+}
+
 // Draws when the container has a width and redraws (debounced) when that width changes. Returns a stop function.
 export function responsive(el, draw) {
   let width = 0;
@@ -210,7 +222,7 @@ export function responsive(el, draw) {
     const w = Math.max(300, Math.min(940, el.clientWidth));
     if (w === width) return;
     width = w;
-    el.replaceChildren(draw(w));
+    el.replaceChildren(plotA11y(draw(w)));
   };
   const ro = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(run, width ? 150 : 0); });
   ro.observe(el);

@@ -1,6 +1,7 @@
 // Methodology page. Every number shown is read from data/validation/*, ratios.parquet, static_mask.parquet,
 // gaps.parquet and meta.json at load time. The functions above init() are pure and unit-tested under node;
 // Plot and DuckDB are imported inside init() so this module loads without a browser.
+import { plotA11y } from './charts.js';
 
 // 0.6.17 (Feb 2025): the newest release that is at least two weeks old on 14 Nov 2026.
 const PLOT_ESM = 'https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17/+esm';
@@ -309,7 +310,7 @@ function responsive(el, draw) {
     const w = Math.max(320, Math.min(940, el.clientWidth));
     if (w === width) return;
     width = w;
-    el.replaceChildren(draw(w));
+    el.replaceChildren(plotA11y(draw(w)));
   };
   new ResizeObserver(run).observe(el);
   setTimeout(run, 0); // first draw does not wait for a rendered frame (a background tab has none)

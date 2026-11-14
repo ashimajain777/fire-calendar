@@ -1,1 +1,1 @@
-{"name":"fire-calendar-browser-checks","private":true,"type":"module","dependencies":{"playwright":"^1.48.2"}}
+{"name":"fire-calendar-browser-checks","private":true,"type":"module","dependencies":{"axe-core":"^4.10.2","playwright":"^1.48.2"}}
