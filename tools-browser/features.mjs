@@ -48,7 +48,21 @@ console.log('compare A=UK B=Punjab:', JSON.stringify(ba.firstRows));
 if (await page.getByRole('tab', { name: 'Timelapse' }).count()) {
   await single(PUNJAB);
   await page.getByRole('tab', { name: 'Timelapse' }).click();
-  out.timelapse = { tab: true };
+  await page.fill('#tl-from', '2025-10-01');
+  await page.fill('#tl-to', '2025-11-30');
+  await page.selectOption('#tl-step', 'day');
+  const t0 = Date.now();
+  await page.getByRole('button', { name: /^Load/ }).click();
+  await page.waitForFunction(() => /so far/.test(document.querySelector('.tl-count')?.textContent || ''), null, { timeout: 120000 });
+  const loadMs = Date.now() - t0;
+  await page.focus('#tl-scrub');
+  await page.keyboard.press('End');
+  await page.waitForTimeout(300);
+  const last = await page.evaluate(() => document.querySelector('.tl-count').textContent);
+  const expected = await page.evaluate(async () => { const q = await import('./queries.js'); const c = window.fireCalendar.getContext(); return q.pointsCount(c.db, c.area, { from: '2025-10', to: '2025-11' }, c.cats); });
+  const soFar = Number((last.match(/([\d,]+) so far/) || [])[1]?.replace(/,/g, ''));
+  out.timelapse = { loadMs, lastFrameText: last, frameSum: soFar, pointsCount: expected, match: soFar === expected };
+  console.log('timelapse:', JSON.stringify(out.timelapse));
 }
 // B4 climate (if present)
 out.climatePanel = await page.evaluate(() => !!document.querySelector('#climate-panel'));
