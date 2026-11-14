@@ -321,7 +321,7 @@ const SERIES_STYLE = {
   snpp: { stroke: 'var(--series-3)' },
   noaa20: { stroke: 'var(--series-4)' },
   naive: { stroke: 'var(--ink-2)', strokeDasharray: '6 4' },
-  harm: { stroke: 'var(--ink)', strokeWidth: 3 },
+  harm: { stroke: 'var(--ink)', strokeWidth: 5 },
 };
 
 function annualChart(Plot, wide, width) {
@@ -340,7 +340,8 @@ function annualChart(Plot, wide, width) {
     y: { type: 'log', grid: true, label: 'Hotspots per year (log scale)', tickFormat: '~s' },
     marks: [
       Plot.areaY(wide.filter((d) => d.harm_lo > 0), { x: 'year', y1: 'harm_lo', y2: 'harm_hi', fill: 'var(--ink)', fillOpacity: 0.18 }),
-      ...SERIES.map((s) => Plot.lineY(wide.filter((d) => isNum(d[s.key]) && d[s.key] > 0), { x: 'year', y: s.key, strokeWidth: 2, ...SERIES_STYLE[s.key] })),
+      // harmonized first and thick, raw lines on top, so the satellites it coincides with stay visible
+      ...[...SERIES].reverse().map((s) => Plot.lineY(wide.filter((d) => isNum(d[s.key]) && d[s.key] > 0), { x: 'year', y: s.key, strokeWidth: 2, ...SERIES_STYLE[s.key] })),
       Plot.text(endLabels(wide), { x: 'year', y: 'value', text: 'text', textAnchor: 'start', dx: 8, fill: 'var(--ink)', lineWidth: width < 560 ? 8 : 16 }),
       Plot.ruleX(wide, Plot.pointerX({ x: 'year', stroke: 'var(--ink-2)' })),
       Plot.tip(wide, Plot.pointerX({ x: 'year', y: 'harm', title: tipText, fill: 'var(--surface-1)', stroke: 'var(--line)' })),
@@ -369,9 +370,10 @@ function breakdownPlot(Plot, rows, labelOf, order, width, ariaLabel) {
     height: 60 + order.length * 30,
     marginLeft: 140,
     marginRight: 24,
+    marginBottom: 48,
     style: { fontFamily: 'inherit', fontSize: '13px', color: 'var(--ink)', background: 'transparent', '--plot-background': 'var(--surface-1)' },
     ariaLabel,
-    x: { label: 'Median absolute error (%)', grid: true, nice: true, zero: true },
+    x: { label: 'Median absolute error (%)', labelAnchor: 'center', labelArrow: 'none', grid: true, nice: true, zero: true },
     y: { label: null, domain: order, type: 'point' },
     marks: [
       ...LINKS.map((link) => Plot.dot(data.filter((d) => d.link === link), {
@@ -441,8 +443,10 @@ export async function init() {
         ...SERIES.map((s) => ({ label: s.label, num: true, cell: (r) => fmtInt(r[s.key]) })),
         { label: 'Band low', num: true, cell: (r) => fmtInt(r.harm_lo) }, { label: 'Band high', num: true, cell: (r) => fmtInt(r.harm_hi) }];
       const chart = h('div', { class: 'chart' });
+      const start = String((await metaP).coverage_start || '');
+      const partYear = start && start.slice(5, 10) !== '01-01' ? ` The first year, ${start.slice(0, 4)}, only starts on ${fmtDate(start)}, so its totals are low.` : '';
       const out = [chart, annualLegend(),
-        h('p', { class: 'muted' }, 'The vertical axis is logarithmic: one axis, where equal distances mean equal ratios. Raw MODIS counts are many times smaller than VIIRS counts, so on a linear axis the Terra and Aqua lines would lie flat along the bottom; and a sensor jump is a ratio, which a log axis shows at the same height wherever it happens. A dash in the table means the satellite was not flying that year.'),
+        h('p', { class: 'muted' }, 'The vertical axis is logarithmic: one axis, where equal distances mean equal ratios. Raw MODIS counts are many times smaller than VIIRS counts, so on a linear axis the Terra and Aqua lines would lie flat along the bottom; and a sensor jump is a ratio, which a log axis shows at the same height wherever it happens. A dash in the table means the satellite was not flying that year.' + partYear),
         tableToggle(table('Hotspots per year by series', cols, wide))];
       try {
         const Plot = await plotP;
