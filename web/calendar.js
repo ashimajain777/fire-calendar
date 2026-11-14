@@ -49,7 +49,8 @@ const ordinal = (n) => {
 
 export function calendarModel(rows, opts = {}) {
   // soFar: stats.monthToDate() result for the current month, so its cell compares like with like (complete dekads)
-  const { mode = 'counts', metric = 'harm_n', baseYears = [], currentYM = null, gaps = [], soFar = null } = opts;
+  // scaleValues: count-mode bins come from these values instead, so two calendars can share one colour scale
+  const { mode = 'counts', metric = 'harm_n', baseYears = [], currentYM = null, gaps = [], soFar = null, scaleValues = null } = opts;
   const unit = UNITS[metric] || UNITS.harm_n;
   const withUnit = (v) => `${fmt(v)} ${unit}${fmt(v) === '1' ? '' : 's'}`;
   if (!rows || !rows.length) return { mode, years: [], typical: [], legend: [], legendTitle: '' };
@@ -79,7 +80,8 @@ export function calendarModel(rows, opts = {}) {
   const lastYear = Math.floor(last / 12);
   const nonZero = [];
   for (let y = firstYear; y <= lastYear; y++) for (let m = 1; m <= 12; m++) if (stateOf(y, m) === 'value') nonZero.push(valueOf(y, m));
-  const bins = quantileBins(nonZero, STEPS);
+  const scale = scaleValues ? scaleValues.filter((v) => v > 0) : nonZero;
+  const bins = quantileBins(scale, STEPS);
   // With fewer than 7 bins the steps are spread over the whole ramp.
   const countStep = (i) => (bins.length ? 1 + Math.round((i * (STEPS - 1)) / bins.length) : 4);
   const stepOf = (value, pct) => {
@@ -141,12 +143,12 @@ export function calendarModel(rows, opts = {}) {
   } else {
     legendTitle = `${unit[0].toUpperCase()}${unit.slice(1)}s per month`;
     const binLabel = (i) => {
-      if (!bins.length) return fmt(nonZero[0]);
+      if (!bins.length) return fmt(scale[0]);
       if (i === 0) return `≤ ${fmt(bins[0])}`;
       if (i === bins.length) return `> ${fmt(bins[i - 1])}`;
       return `${fmt(bins[i - 1])}–${fmt(bins[i])}`;
     };
-    const binItems = nonZero.length
+    const binItems = scale.length
       ? Array.from({ length: bins.length + 1 }, (_, i) => ({ kind: 'bin', step: countStep(i), label: binLabel(i) }))
       : [];
     legend = [{ kind: 'zero', step: null, label: '0' }, ...binItems, nodata];
