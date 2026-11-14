@@ -139,3 +139,12 @@ test('outlineGeoJSON: one closed square per cell', () => {
   assert.ok(Math.abs(ring[0][0] - 76.0) < 1e-9 && Math.abs(ring[0][1] - 30.0) < 1e-9);
   assert.ok(Math.abs(ring[2][0] - 76.1) < 1e-9 && Math.abs(ring[2][1] - 30.1) < 1e-9);
 });
+
+test('rangesSQL switches to an id list for many ranges, selecting the same cells', () => {
+  const ranges = Array.from({ length: 45 }, (_, i) => [i * 10, i * 10 + 2]);
+  const sql = rangesSQL(ranges);
+  assert.match(sql, /^\(cell_id BETWEEN 0 AND 442 AND cell_id IN \(0,1,2,10,11,12,/);
+  const ids = sql.match(/IN \(([^)]*)\)/)[1].split(',').map(Number);
+  assert.equal(ids.length, 45 * 3);
+  assert.deepEqual(cellsToRanges(ids), ranges);
+});

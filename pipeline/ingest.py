@@ -143,7 +143,8 @@ def build_points_stage(con, inputs: list[tuple[Path, str, str]], out_dir: Path, 
         d AS (
             SELECT *, {CELL_ID_SQL} AS cell_id, {CELL001_SQL} AS cell001_id, {REGION_ID_SQL} AS region_id,
                    ROW_NUMBER() OVER (PARTITION BY lat, lon, acq_date, acq_time, satellite
-                                      ORDER BY (processing = 'SP') DESC) AS rn
+                                      ORDER BY (processing = 'SP') DESC, frp DESC NULLS LAST, brightness DESC NULLS LAST,
+                                               confidence_raw, version, daynight) AS rn  -- full tie-break: the same row wins every run
             FROM _ingest_raw),
         cells AS (
             SELECT cell_id, ST_Within(ST_MakeEnvelope(x, y, x + 0.1, y + 0.1), g) AS whole

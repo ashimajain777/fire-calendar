@@ -125,8 +125,20 @@ export function cellsToRanges(ids) {
   return ranges;
 }
 
+export const MAX_OR_RANGES = 40;
+
 export function rangesSQL(ranges, column = 'cell_id') {
   if (!ranges.length) return 'FALSE';
+  // Many ranges (a large area): an id list is far faster to evaluate than hundreds of ORs; the BETWEEN guard keeps
+  // Parquet row-group skipping. Same rows either way.
+  if (ranges.length > MAX_OR_RANGES) {
+    const ids = [];
+    for (const [a, b] of ranges) {
+      if (!Number.isInteger(a) || !Number.isInteger(b)) throw new TypeError('Cell ranges must be integers');
+      for (let i = a; i <= b; i++) ids.push(i);
+    }
+    return `(${column} BETWEEN ${ranges[0][0]} AND ${ranges[ranges.length - 1][1]} AND ${column} IN (${ids.join(',')}))`;
+  }
   const parts = ranges.map(([a, b]) => {
     if (!Number.isInteger(a) || !Number.isInteger(b)) throw new TypeError('Cell ranges must be integers');
     return a === b ? `${column} = ${a}` : `${column} BETWEEN ${a} AND ${b}`;

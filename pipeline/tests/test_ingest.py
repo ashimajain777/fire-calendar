@@ -211,3 +211,14 @@ def test_download_skips_existing(tmp_path, monkeypatch):
     assert have.read_text() == "already here"
     assert paths[1].read_text().startswith("latitude")
     assert not list(tmp_path.rglob("*.part"))
+
+
+def test_dedup_is_deterministic(tmp_path):
+    """Duplicates that differ only in FRP: the same row (highest FRP) wins whatever the input order."""
+    lo = viirs().replace(",290.1,3.5,", ",290.1,3.5,")
+    hi = viirs().replace(",290.1,3.5,", ",290.1,9.9,")
+    a = write(tmp_path, "a.csv", VIIRS_HDR, [lo, hi])
+    b = write(tmp_path, "b.csv", VIIRS_HDR, [hi, lo])
+    for p in (a, b):
+        _, rows, _ = run(tmp_path, [(p, "viirs-snpp", "SP")])
+        assert [round(r["frp"], 1) for r in rows] == [9.9]
