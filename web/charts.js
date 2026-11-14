@@ -343,7 +343,11 @@ export function svgToString(svg) {
   const to = [clone, ...clone.querySelectorAll('*')];
   from.forEach((node, i) => {
     const cs = getComputedStyle(node);
-    for (const p of ['fill', 'stroke', 'color', 'font-family', 'font-size', 'font-weight']) to[i].style.setProperty(p, cs.getPropertyValue(p));
+    for (const p of ['fill', 'stroke', 'color', 'font-family', 'font-size', 'font-weight']) {
+      to[i].style.setProperty(p, cs.getPropertyValue(p));
+      // var(--x) attributes mean nothing outside the page; replace them too, for editors that read attributes only
+      if (/var\(/.test(to[i].getAttribute(p) || '')) to[i].setAttribute(p, cs.getPropertyValue(p));
+    }
   });
   const box = svg.getBoundingClientRect();
   const width = Number(svg.getAttribute('width')) || Math.round(box.width);
