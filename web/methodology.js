@@ -101,6 +101,18 @@ export function loyoRows(summary, variant) {
   return rows;
 }
 
+// How the main page widens bands for converted values (web/uncertainty.js), with this build's numbers.
+export function bandMethodText(summary) {
+  const l = summary && summary.loyo && summary.loyo[summary.chosen_variant];
+  if (!l) return '';
+  const parts = Object.keys(LINK_LABELS).filter((k) => l[k]).map((k) =>
+    `${LINK_LABELS[k]} ${fmtPct(l[k].box1deg.mdape)} for a 1° box and ${fmtPct(l[k].region_month.mdape)} for the whole region`);
+  return `How the main page shows this: the band on a converted value is widened to ± the error measured here when that is wider than the ratio band. `
+    + `The error is interpolated on a log scale of area between the 1° box result and the whole-region result (${parts.join('; ')}), `
+    + `and errors of the conversions a value went through are combined in quadrature. Areas smaller than five 1° boxes get a note with the resulting ± percentage. `
+    + `Fire-days use the hotspot errors, and the error is measured on monthly values, so it is conservative for annual totals.`;
+}
+
 export function smallAreaNote(summary, variant, chain) {
   const byLink = (summary.loyo && summary.loyo[variant]) || {};
   const hit = LINKS.filter((l) => {
@@ -481,6 +493,7 @@ export async function init() {
         ], rows),
         flagged.length ? h('p', { class: 'muted' }, `Marked rows have band coverage outside ${fmtPct(COVERAGE_MIN, 0)}–${fmtPct(COVERAGE_MAX, 0)}. "Band too narrow" means the true value falls outside the band more often than the band suggests.`) : null,
         h('p', {}, smallAreaNote(summary, variant, chain)),
+        h('p', {}, bandMethodText(summary)),
       ];
     }),
 

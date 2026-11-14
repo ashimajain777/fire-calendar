@@ -178,3 +178,11 @@ test('coverage limitation: the reason appears only when data ends before the cur
   const current = coverageLimitText({ coverage_end: '2026-11-12' }, now);
   assert.ok(current.includes('12 Nov 2026') && !current.includes('FIRMS key'));
 });
+
+test('bandMethodText states the measured errors from the summary', async () => {
+  const { bandMethodText } = await import('../methodology.js');
+  const s = { chosen_variant: 'v', loyo: { v: { aqua_snpp: { box1deg: { mdape: 0.44 }, region_month: { mdape: 0.08 } } } } };
+  const t = bandMethodText(s);
+  assert.match(t, /Aqua → S-NPP 44(\.0)? ?% for a 1° box and 8(\.0)? ?% for the whole region/);
+  assert.equal(bandMethodText({}), '');
+});

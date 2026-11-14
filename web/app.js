@@ -5,6 +5,7 @@ import { cellsFromGeometry, cellsFromBBox, cellsFromPointRadius, cellsToRanges, 
 import { monthToDate, rankings, percentileRank, zScore, median } from './stats.js';
 import { freshness } from './freshness.js';
 import { initDB } from './db.js';
+import { linkErrors, widenRows, smallAreaNote } from './uncertainty.js';
 import { renderCalendar } from './calendar.js';
 import * as q from './queries.js';
 import * as map from './map.js';
@@ -31,7 +32,7 @@ const emit = (name, detail) => document.dispatchEvent(new CustomEvent(name, { de
 const errorText = (e) => (e && e.message ? e.message : String(e));
 
 const state = {
-  db: null, config: null, meta: null, coverage: null, bounds: null, gaps: [],
+  db: null, config: null, meta: null, summary: null, coverage: null, bounds: null, gaps: [],
   area: null, range: null, cats: [0, 1, 2, 3], metric: 'harm_n', mode: 'counts',
   ctx: null, seq: 0,
 };
@@ -333,8 +334,11 @@ async function run() {
   emit('fc:loading', { area, range, cats, metric });
   try {
     const t0 = performance.now();
-    const { calendars: { harm_n: calN, harm_fd: calFd }, dekadRows, sensors } = await q.overview(db, area, range, cats, metric);
+    const { calendars: { harm_n: rawN, harm_fd: rawFd }, dekadRows, sensors } = await q.overview(db, area, range, cats, metric);
     if (my !== state.seq) return;
+    // bands widened to the measured conversion error for an area of this size (fire-days use the hotspot errors)
+    const errs = linkErrors(state.summary, area.ids.length, state.coverage.size);
+    const [calN, calFd] = [widenRows(rawN, errs), widenRows(rawFd, errs)];
     const calendarRows = metric === 'harm_n' ? calN : calFd;
     const ctx = {
       db, config: state.config, meta, area, range, cats, metric, baseYears: q.baseYearsFor(meta),
@@ -349,6 +353,7 @@ async function run() {
       area.snappedToContaining && ['Area is smaller than one 11 km grid cell; using the cell that contains it.'],
       area.outsideShare > 0 && [`${pctOutside < 1 ? 'Less than 1' : pctOutside} % of this area is outside data coverage`],
       empty && ['No hotspots detected in this area for the selected period'],
+      !empty && smallAreaNote(calendarRows, errs, area.ids.length) && [smallAreaNote(calendarRows, errs, area.ids.length)],
     );
     renderKpis(ctx, { harm_n: total(calN), harm_fd: total(calFd) }, sensors);
     drawCalendar();
@@ -445,6 +450,8 @@ async function start() {
     state.config = await res.json();
     state.meta = await q.meta(state.config);
     showFreshness(state.meta);
+    // the measured conversion errors; without them only the ratio bands are shown
+    state.summary = await fetch(state.config.data.tables + 'validation/summary.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
     if (!state.meta) throw new Error("Couldn't load meta.json, so the data period is unknown.");
     state.config.version = state.meta.generated_utc;
     state.db = await initDB(state.config);
