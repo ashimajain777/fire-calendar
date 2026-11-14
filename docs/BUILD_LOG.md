@@ -161,3 +161,10 @@ All numbers below are from `work/build_1.log`, `build_2.log`, `build_3.log`.
 - Cross-check (live vs Python), now with fire-days: **8/8 MATCH** on cells, harmonized, raw, CSV rows, fire-days, top month; 0 console errors. Fire-days: Punjab 360,780; Uttarakhand 106,901; Jharia 1,217; boxes 21 / 11,385 / 1,701 / 2,933 / 6,232.
 - axe 0 violations (main page before/after tabs, Methodology; light and dark). Keyboard path, 200 % zoom, 390 px: pass.
 - Timings: see A3 table.
+
+## Round 2, Phase B
+
+- **B3 exposure: done, live** (D24). GHS-POP 2020 (30″) → 2,857,103 0.01° cells; monthly exposure, 27 tiles (5.0 MB). KPI on the main page. Cross-check (browser tiles vs Python recomputed from points + population): busiest month matches for all 8 areas, e.g. Punjab Oct 2016 25,650,668; Uttarakhand Dec 2024 5,368,071; Jharia Mar 2021 568,305.
+- **B1 comparison: done, live** (subagent, branch `b1-compare`, merged). Agent's real-data preview: Punjab 2,115,127 vs Uttarakhand 360,808 (= single-area totals); swapping flipped all 15 differences; shared legend bins identical; year-span mode Punjab 2015-16 207,138 vs 2023-24 88,351. Live smoke: 2 calendars, identical legends, 0 console errors.
+- **B2 timelapse: done, live** (subagent, branch `b2-timelapse`, merged). Live: Punjab, 1 Oct-30 Nov 2025, daily: frame sum 14,248 = `pointsCount` 14,248; load 6.1 s (one 22.5 MB year file). Agent checked: no autoplay, keyboard play/pause and scrubber, reduced motion disables auto-advance, 20,000-point cap note.
+- Tests after merges: pytest 119, node 132 passed.
