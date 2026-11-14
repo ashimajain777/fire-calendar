@@ -212,7 +212,7 @@ test('season: a secondary peak that shares its trough with the main season is st
     if (i >= 28 && i <= 32) return 500;
     if (i > 32 || i < 9) return 60 - ((i + 36 - 33) % 36) * 5; // 60, 55, ... down to 9 at the trough
     if (i === 9) return 2;
-    if (i >= 10 && i <= 12) return [80, 120, 70][i - 10];
+    if (i >= 10 && i <= 12) return [200, 300, 180][i - 10]; // about 19 % of the year
     return 1;
   });
   const rows = [];
