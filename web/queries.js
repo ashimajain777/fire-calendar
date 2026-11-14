@@ -171,6 +171,14 @@ export function pointsCountSQL(urls, ranges, cats, range) {
   return `SELECT count(*)::INT AS n ${pointsWhere(urls, ranges, cats, range)}`;
 }
 
+// Timelapse: only the four columns a frame needs, for a window of whole days {from, to: 'YYYY-MM-DD'}.
+export function timelapseSQL(urls, ranges, cats, window) {
+  for (const d of [window.from, window.to]) if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new TypeError(`Date must be YYYY-MM-DD, got ${d}`);
+  return `SELECT acq_date, lat, lon, category FROM ${fileList(urls)}
+WHERE ${rangesSQL(ranges)} AND acq_date BETWEEN DATE '${window.from}' AND DATE '${window.to}' AND ${catsSQL(cats)}
+ORDER BY acq_date`;
+}
+
 // Months with no rows in the files had no detections: they are zeros, not missing.
 export function fillMonths(rows, range) {
   const a = ym(range.from);
@@ -334,6 +342,12 @@ export async function points(db, area, range, cats, { limit } = {}) {
 export async function pointsCount(db, area, range, cats) {
   const urls = pointUrls(db, range);
   return urls.length ? (await db.query(pointsCountSQL(urls, area.ranges, cats, range)))[0].n : 0;
+}
+
+// Rows for the timelapse; the panel groups them into frames (panel-timelapse.js framesFrom).
+export async function timelapsePoints(db, area, window, cats) {
+  const urls = pointUrls(db, { from: window.from.slice(0, 7), to: window.to.slice(0, 7) });
+  return urls.length ? db.query(timelapseSQL(urls, area.ranges, cats, window)) : [];
 }
 
 export function pointsCSV(db, area, range, cats) {

@@ -114,6 +114,17 @@ export async function showPoints(rows) {
   note.textContent = note.hidden ? '' : `Showing the first ${MAX_POINTS.toLocaleString('en-US')} hotspots of this month. The CSV download has all of them.`;
 }
 
+// Timelapse frame: rows [{lat, lon, category}], at most MAX_POINTS drawn; the timelapse panel says when a frame is cut.
+export async function showFrame(rows) {
+  await setData('points', {
+    type: 'FeatureCollection',
+    features: rows.slice(0, MAX_POINTS).map((r) => ({
+      type: 'Feature', properties: { g: groupOf(r.category) }, geometry: { type: 'Point', coordinates: [r.lon, r.lat] },
+    })),
+  });
+  note.hidden = true;
+}
+
 export async function fitTo([w, s, e, n]) {
   await ready;
   map.fitBounds([[w, s], [e, n]], { padding: 40, maxZoom: 10, duration: 0 });
