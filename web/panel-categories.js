@@ -64,11 +64,11 @@ const CSS = `
 .cat-check { display: inline-flex; align-items: center; gap: 10px; min-height: var(--control-h); cursor: pointer; }
 .cat-stack { display: flex; flex-direction: column; gap: 12px; }
 .cat-scroll { overflow-x: auto; }
-.cat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: var(--gutter); }
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 450px), 1fr)); gap: var(--gutter); }
 .cat-grid > section { min-width: 0; }
 .cat-grid h3 { margin-bottom: 2px; }
 .cat-cal.calendar { padding: 8px 0 0; }
-.cat-cal .cal-table { min-width: 470px; font-size: 12px; }
+.cat-cal .cal-table { min-width: 430px; font-size: 12px; }
 .cat-cal .cal-table th:first-child { width: 44px; }
 .cat-cal .cal-cell { min-width: 0; height: 22px; font-size: 11px; cursor: default; }
 `;
