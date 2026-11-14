@@ -65,15 +65,15 @@ test('calendarModel: fire-days unit and singular', () => {
   assert.ok(m.years[0].cells[3].label.includes('2 fire-days,'));
 });
 
-test('calendarModel: a month whose 3 dekads are unfilled gaps is "no data", never zero', () => {
+test('calendarModel: a month with any unfilled gap dekad is "no data", never zero', () => {
   const gap = (d, filled_from = null) => ({ year: 2021, month: 1, dekad: d, chain_satellite: 'Aqua', filled_from });
   const m = calendarModel(rows, { baseYears: BASE, gaps: [gap(1), gap(2), gap(3)] });
   const c = m.years[2].cells[0];
   assert.equal(c.state, 'nodata');
   assert.equal(c.label, 'January 2021, no data');
-  // a filled gap, or only 2 of 3 dekads, is not "no data"
-  assert.equal(calendarModel(rows, { baseYears: BASE, gaps: [gap(1), gap(2), gap(3, 'SNPP')] }).years[2].cells[0].state, 'zero');
-  assert.equal(calendarModel(rows, { baseYears: BASE, gaps: [gap(1), gap(2)] }).years[2].cells[0].state, 'zero');
+  // one unfilled dekad is enough; a filled gap is not "no data"
+  assert.equal(calendarModel(rows, { baseYears: BASE, gaps: [gap(2)] }).years[2].cells[0].state, 'nodata');
+  assert.equal(calendarModel(rows, { baseYears: BASE, gaps: [gap(3, 'SNPP')] }).years[2].cells[0].state, 'zero');
 });
 
 test('calendarModel: anomaly mode bins by percentile of the same month', () => {

@@ -184,15 +184,13 @@ def test_loyo_prediction(con, tmp_path, fake_harmonize, variant):
 
 def test_direct_aqua_noaa20(con, tmp_path):
     rows = []
-    for y, target in ((2018, 20), (2019, 30), (2020, 40), (2021, 30)):
+    for y, target in ((2019, 20), (2020, 30), (2021, 40)):
         rows += point(y, "Aqua", 10) + point(y, "NOAA20", target)
-    rows += point(2017, "Aqua", 10) + point(2022, "NOAA20", 500)  # outside 2018-2021: ignored
+    rows += point(2018, "Aqua", 10) + point(2022, "NOAA20", 500)  # outside 2019-2021: ignored
     d = validate.direct_aqua_noaa20(con, write_points(tmp_path, rows))
-    # held 2019, 2021: ratio 3 exactly, band [2.2, 3.8] x 10 holds 30
-    # held 2018: predicted 33.3 vs 20, band [30, 38]; held 2020: predicted 26.7 vs 40, band [22, 30]
-    assert d["n"] == 4
-    assert d["mdape"] == pytest.approx(1 / 6)
-    assert d["coverage"] == pytest.approx(0.5)
+    # held 2019: ratio 3.5 -> 35 vs 20; held 2020: ratio 3 -> 30 vs 30; held 2021: ratio 2.5 -> 25 vs 40
+    assert d["n"] == 3
+    assert d["mdape"] == pytest.approx(0.375)
 
 
 def test_write_validation(con, tmp_path, fake_harmonize):

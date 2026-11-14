@@ -65,8 +65,9 @@ export function calendarModel(rows, opts = {}) {
   const valueOf = (y, m) => { const r = byYM.get(ym(y, m)); return r && r.value > 0 ? r.value : 0; };
   const stateOf = (y, m) => {
     if (ym(y, m) < first || ym(y, m) > last) return 'empty';
-    if (valueOf(y, m) > 0) return 'value';
-    return [1, 2, 3].some((d) => unfilled.has(`${y}-${m}-${d}`)) ? 'nodata' : 'zero';
+    // an unfilled gap dekad means the month's total is incomplete: show "no data", not a low value
+    if ([1, 2, 3].some((d) => unfilled.has(`${y}-${m}-${d}`))) return 'nodata';
+    return valueOf(y, m) > 0 ? 'value' : 'zero';
   };
 
   const measured = (y, m) => stateOf(y, m) === 'value' || stateOf(y, m) === 'zero';

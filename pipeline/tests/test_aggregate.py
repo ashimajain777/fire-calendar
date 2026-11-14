@@ -115,3 +115,11 @@ def test_invariant_duplicates_and_date_range(tmp_path):
     con.execute(f"COPY (SELECT * REPLACE ((acq_date - INTERVAL 400 DAY)::DATE AS acq_date) FROM t) TO '{f}' (FORMAT parquet)")
     with pytest.raises(aggregate.InvariantError, match="date_range"):
         aggregate.check_invariants(con, pg, dg)
+
+
+def test_multi_day_outage_flags_partial_dekads(tmp_path, monkeypatch):
+    """NOAA-20 reports on 1-3 and 12-20 Jan: the 8-day hole (4-11 Jan) makes dekads 1 and 2 gaps; dekad 3 has none."""
+    monkeypatch.setattr(aggregate, "OUTAGE_MIN_DAYS", 5)
+    days = [1, 2, 3] + list(range(12, 32))
+    _, _, _, gaps, _ = build(tmp_path, [pt("NOAA20", f"2020-01-{d:02d}") for d in days])
+    assert [(g["month"], g["dekad"]) for g in gaps if g["year"] == 2020] == [(1, 1), (1, 2)]
